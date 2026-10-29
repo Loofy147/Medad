@@ -252,7 +252,7 @@ class JsonlEventJournal:
             raise KeyError(f"Unknown event_id: {event_id}")
         if current["state"] == new_state:
             return {"transition": None, "inserted": False, "reason": "ALREADY_IN_STATE", "prior_state": current["state"], "new_state": new_state}
-        transition_key = f"transition:{event_id}:{current['state']}:{new_state}:{actor}:{reason}"
+        transition_key = f"transition:{event_id}:{current.get('last_transition_id', 'root')}:{current['state']}:{new_state}:{actor}:{reason}"
         transition_hash = sha256(transition_key.encode("utf-8")).hexdigest()
         transition = _event(
             event_type="EVENT_STATE_TRANSITION", priority=current["priority"],
