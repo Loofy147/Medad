@@ -225,6 +225,151 @@
         "Do not infer that the platform claims imply any product is in stock, profitable, or available on terms appropriate to Medad",
         "Check seller legal identity, current availability, return terms, and fees before transacting"
       ]
+    },
+    {
+      "id": "svc-corporation-phone-holder-wholesale-prospect",
+      "publisher": "SVC Corporation / Ouedkniss",
+      "title": "LDNIO car phone support — retail listing with wholesale inquiry",
+      "url": "https://www.ouedkniss.com/store/9348/svc-corporation/annonce/33191438",
+      "source_type": "retail_listing_and_wholesale_prospect",
+      "listing_date": "2026-07-08",
+      "observed_facts": {
+        "asking_price_range_dzd": [
+          1500,
+          1700
+        ],
+        "listing_views_at_capture": 583,
+        "sku_codes": [
+          "MG08",
+          "MG03"
+        ],
+        "seller_statement": "Listing says retail and wholesale are available and asks buyers to call for wholesale pricing; seller claims delivery to 58 wilayas and COD."
+      },
+      "evidence_limitations": [
+        "Wholesale quote has not been received",
+        "Retail listing and seller claims are not independently verified",
+        "Listing page returned 503 during re-open; validate availability and seller details before relying on it",
+        "Views do not demonstrate completed sales"
+      ]
+    },
+    {
+      "id": "hted-car-phone-holders-retail-benchmark",
+      "publisher": "H-TED Store",
+      "title": "Car phone-holder category and retail listings",
+      "url": "https://www.htedstore.com/categorie-produit/supports/supports-voiture/",
+      "source_type": "retail_price_benchmark",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "listed_references": 25,
+        "examples_dzd": [
+          810,
+          1100,
+          1382,
+          1400,
+          1750,
+          1800,
+          2300,
+          2350,
+          2900,
+          3000,
+          3200,
+          3800
+        ],
+        "context": "Multiple distinct models/brands such as HOCO, Borofone and Acefast are displayed, with COD and delivery claims."
+      },
+      "evidence_limitations": [
+        "Retail prices, not wholesale landed costs",
+        "Not all items are same model/specification",
+        "Delivery and availability should be confirmed at checkout",
+        "Price page was not independently captured as a stable snapshot after the search result"
+      ]
+    },
+    {
+      "id": "kroussa-car-organizer-retail-benchmark",
+      "publisher": "Kroussa",
+      "title": "Car interior organizers and storage retail category",
+      "url": "https://kroussa.com/categorie-produit/accessoires-interieur-voiture/organisateur-rangement-voiture/",
+      "source_type": "retail_price_benchmark",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "examples": [
+          {
+            "name": "multifunction seat organizer 2 pcs",
+            "price_dzd": 3100
+          },
+          {
+            "name": "seat-back organizer",
+            "price_dzd": 1250
+          },
+          {
+            "name": "sun-visor organizer",
+            "price_dzd": 1100
+          },
+          {
+            "name": "trunk organizer",
+            "price_dzd": 650
+          }
+        ]
+      },
+      "evidence_limitations": [
+        "Different product types and pack sizes are not directly comparable",
+        "Retail offers do not disclose supplier cost or actual units sold",
+        "Current stock and delivery terms require re-check"
+      ]
+    },
+    {
+      "id": "tidjara-seat-gap-organizer-retail-snapshot",
+      "publisher": "Tidjara",
+      "title": "Car-seat gap organizer retail listing",
+      "url": "https://tidjara.dz/produit/organisateur-pour-siege-voiture-multifonction-noir/",
+      "source_type": "retail_listing_unavailable_on_reopen",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "search_indexed_asking_price_dzd": 1800,
+        "search_indexed_stock_units": 1,
+        "search_indexed_spec": "ABS plastic, 26 x 7.5 x 9.1 cm, cup holder, described as seat-gap organizer"
+      },
+      "evidence_limitations": [
+        "Live page returned 404 when re-opened; treat price and stock as stale/unverified",
+        "This is a search-indexed observation, not a current offer",
+        "Must compare exact dimensions/fit and SKU before treating it as equivalent to the 4,500 DZD listing",
+        "Retail ask does not prove sales"
+      ]
+    },
+    {
+      "id": "promotika-car-seatback-organizer-retail-benchmark",
+      "publisher": "Promotika DZ",
+      "title": "Rear seat-back organizer retail listing",
+      "url": "https://promotika-dz.com/produit/organisateur-dobjets-pour-siege-arriere-pour-plus-despace-avec-un-design-pratique-1pcs-copie/",
+      "source_type": "retail_price_benchmark",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "asking_price_dzd": 2300,
+        "product_type": "seat-back organizer, not the same seat-gap organizer",
+        "seller_location": "Blida",
+        "seller_contact_page_claims": "delivery and COD"
+      },
+      "evidence_limitations": [
+        "Different product geometry and use-case from seat-gap organizer",
+        "Retail price not supplier quote",
+        "Availability and delivery terms need direct confirmation"
+      ]
+    },
+    {
+      "id": "shoppicom-wholesale-phone-accessory-lead",
+      "publisher": "Shoppicom Marketplace",
+      "title": "Wholesale smartphone-accessory marketplace",
+      "url": "https://shoppicom.com/about-us-ar/?sl=fr",
+      "source_type": "wholesale_discovery_platform",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "platform_statement": "The site describes itself as an Algerian wholesale marketplace for phone accessories including mounts/supports, with several delivery options and a Blida contact address."
+      },
+      "evidence_limitations": [
+        "Website page returned 403 during re-open; public summary only",
+        "No specific SKU quote, minimum quantity, stock or delivery rate obtained",
+        "Claims of quality and delivery are self-published and not independently audited"
+      ]
     }
   ],
   "candidates": [
@@ -234,7 +379,10 @@
       "category": "car_accessories",
       "status": "RESEARCH_ONLY",
       "source_ids": [
-        "ouedkniss-car-seat-organizer"
+        "ouedkniss-car-seat-organizer",
+        "tidjara-seat-gap-organizer-retail-snapshot",
+        "kroussa-car-organizer-retail-benchmark",
+        "promotika-car-seatback-organizer-retail-benchmark"
       ],
       "market_signal": "One listing with an asking price and view count; views do not prove sales.",
       "market_price_observed_dzd": {
@@ -253,7 +401,8 @@
         "Investigate wholesale/supplier price and product fit",
         "Inspect a sample before any stock commitment",
         "No profitability conclusion is available"
-      ]
+      ],
+      "competitive_risk": "Potentially high: one similar seat-gap retail listing was indexed at 1,800 DZD but the URL returned 404 on re-open; different organizer forms are listed around 1,100–3,100 DZD. Exact SKU comparability and current prices are unverified. Do not use the 4,500 DZD listing as expected selling price without testing."
     },
     {
       "id": "car-phone-holder",
@@ -261,7 +410,9 @@
       "category": "car_accessories",
       "status": "RESEARCH_ONLY",
       "source_ids": [
-        "ouedkniss-car-phone-mounts"
+        "ouedkniss-car-phone-mounts",
+        "svc-corporation-phone-holder-wholesale-prospect",
+        "hted-car-phone-holders-retail-benchmark"
       ],
       "market_price_observed_dzd": {
         "low": 650,
@@ -279,7 +430,8 @@
         "Category shows multiple competing offers",
         "A generic holder may be commoditized",
         "Only proceed with a distinct validated specification or bundle"
-      ]
+      ],
+      "wholesale_lead": "SVC Corporation listing says wholesale pricing can be requested by phone, but no quote has been obtained; listing re-open returned 503. Shoppicom is another wholesale discovery lead, but its page returned 403 and offers no specific product quote."
     },
     {
       "id": "bathroom-storage-basket",
@@ -344,7 +496,7 @@
     "Explicit cash budget, stock cap, stop-loss threshold, and profit-sharing terms",
     "Current matching supplier listings, quote screenshots/documents, seller identity checks, and exact SKU/quantity terms from Hnaya Source/Kabagros/Itidjar or direct wholesalers; discovery platforms are not themselves supplier quotes."
   ],
-  "decision": "No product in this snapshot is investment-ready. Four retail candidates remain RESEARCH_ONLY. Three wholesale discovery platforms are leads only; no subscription, supplier contact, product quote, or seller verification has occurred.",
+  "decision": "No product is investment-ready. Car-seat organizer has explicit competitive-price risk: a similar search-indexed 1,800 DZD offer was inaccessible on re-open and must be revalidated; other organizers are not exact equivalents. Phone holders have a wholesale-contact lead but no quote. All five sourcing leads remain unverified and no product has verified delivered-order economics.",
   "sourcing_leads": [
     {
       "id": "lead-hnaya",
@@ -371,8 +523,28 @@
     {
       "id": "lead-itidjar",
       "platform_source_id": "itidjar-wholesale-marketplace",
-      "due_diligence_source_ids": [],
+      "due_diligence_source_ids": [
+        "tidjara-seat-gap-organizer-retail-snapshot"
+      ],
       "purpose": "Secondary wholesale-directory lead; verify any claims and exact listing/seller before treating as an offer.",
+      "status": "DISCOVERY_LEAD_ONLY",
+      "subscription_purchased": false,
+      "quote_verified": false
+    },
+    {
+      "id": "lead-svc-corporation",
+      "platform_source_id": "svc-corporation-phone-holder-wholesale-prospect",
+      "due_diligence_source_ids": [],
+      "purpose": "Contact seller through the public listing to request a dated wholesale quote by exact SKU, quantity tier, invoice and delivery terms.",
+      "status": "CONTACT_REQUIRED_NOT_VERIFIED",
+      "subscription_purchased": false,
+      "quote_verified": false
+    },
+    {
+      "id": "lead-shoppicom",
+      "platform_source_id": "shoppicom-wholesale-phone-accessory-lead",
+      "due_diligence_source_ids": [],
+      "purpose": "Wholesale discovery avenue for phone accessories; validate operator, product SKU, MOQ and quote terms before any purchase.",
       "status": "DISCOVERY_LEAD_ONLY",
       "subscription_purchased": false,
       "quote_verified": false
