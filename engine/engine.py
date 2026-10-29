@@ -90,6 +90,7 @@ def _validate(x: Inputs) -> None:
 
 
 def assess_data_quality(x: Inputs) -> dict[str, Any]:
+    _validate(x)
     scores = x.confidence or {}
     evidence = x.evidence or {}
     provenance = x.evidence_sources or {}
