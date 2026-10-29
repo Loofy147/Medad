@@ -34,13 +34,16 @@ def validate_event(event: dict[str, Any]) -> list[str]:
     for field in ("event_id", "idempotency_key", "event_type", "priority", "subject_id", "observed_at", "summary", "recommended_action", "state", "created_at"):
         if not isinstance(event.get(field), str) or not event[field].strip():
             errors.append(f"{field} is required")
-    if event.get("priority") not in PRIORITIES:
+    if not isinstance(event.get("priority"), str) or event["priority"] not in PRIORITIES:
         errors.append(f"priority must be one of {sorted(PRIORITIES)}")
-    if event.get("state") not in EVENT_STATES:
+    if not isinstance(event.get("state"), str) or event["state"] not in EVENT_STATES:
         errors.append(f"state must be one of {sorted(EVENT_STATES)}")
     for field in ("source_refs", "evidence_refs", "tags"):
-        if not isinstance(event.get(field, []), list):
+        value = event.get(field, [])
+        if not isinstance(value, list):
             errors.append(f"{field} must be an array")
+        elif any(not isinstance(item, str) or not item.strip() for item in value):
+            errors.append(f"every item in {field} must be a non-empty string")
     for field in ("observed_at", "created_at"):
         value = event.get(field)
         if isinstance(value, str):
@@ -98,6 +101,11 @@ def generate_instant_events(economics: dict[str, Any], *, subject_id: str, obser
     if parsed.tzinfo is None:
         raise ValueError("observed_at must include a timezone")
 
+    if not isinstance(economics, dict):
+        raise ValueError("economics must be a mapping")
+    for field in ("decision", "funnel", "economics_dzd", "data_quality"):
+        if not isinstance(economics.get(field), dict):
+            raise ValueError(f"economics[{field!r}] must be a mapping")
     stable_snapshot = {
         "decision": economics.get("decision"),
         "funnel": economics.get("funnel"),
@@ -192,9 +200,22 @@ class JsonlEventJournal:
                 events.append(event)
         return events
 
-    def list_events(self, *, states: Iterable[str] | None = None) -> list[dict[str, Any]]:
+    def list_events(self, *, states: Iterable[str] | None = None, include_history: bool = False) -> list[dict[str, Any]]:
         with self._lock:
-            events = self._read_unlocked()
+            records = self._read_unlocked()
+        if include_history:
+            events = records
+        else:
+            events_by_id = {event["event_id"]: dict(event) for event in records if event["event_type"] != "EVENT_STATE_TRANSITION"}
+            for transition in records:
+                if transition["event_type"] != "EVENT_STATE_TRANSITION":
+                    continue
+                current = events_by_id.get(transition.get("previous_event_id"))
+                if current is not None:
+                    current["state"] = transition.get("new_state", transition["state"])
+                    current["updated_at"] = transition["created_at"]
+                    current["last_transition_id"] = transition["event_id"]
+            events = list(events_by_id.values())
         requested = set(states) if states is not None else None
         if requested is not None and not requested.issubset(EVENT_STATES):
             raise ValueError(f"states must be drawn from {sorted(EVENT_STATES)}")
@@ -229,6 +250,8 @@ class JsonlEventJournal:
         current = next((e for e in self.list_events() if e["event_id"] == event_id), None)
         if current is None:
             raise KeyError(f"Unknown event_id: {event_id}")
+        if current["state"] == new_state:
+            return {"transition": None, "inserted": False, "reason": "ALREADY_IN_STATE", "prior_state": current["state"], "new_state": new_state}
         transition_key = f"transition:{event_id}:{current['state']}:{new_state}:{actor}:{reason}"
         transition_hash = sha256(transition_key.encode("utf-8")).hexdigest()
         transition = _event(
@@ -244,5 +267,6 @@ class JsonlEventJournal:
         transition["previous_event_id"] = event_id
         transition["actor"] = actor
         transition["new_state"] = new_state
+        transition["state"] = new_state
         appended = self.append(transition)
         return {"transition": appended["event"], "inserted": appended["inserted"], "prior_state": current["state"], "new_state": new_state}
