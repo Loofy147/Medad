@@ -4,7 +4,7 @@
   "case_id": "generic-case-template-only",
   "observed_at": "2026-10-29T00:00:00+00:00",
   "code_revision": "REPLACE_WITH_GIT_COMMIT_SHA",
-  "notice": "SYNTHETIC TEMPLATE ONLY. Every number below is illustrative; it is not market evidence, a supplier quote, or a forecast.",
+  "run_note": "SYNTHETIC TEMPLATE ONLY. Every number below is illustrative; it is not market evidence, a supplier quote, or a forecast.",
   "inputs": {
     "product_name": "generic-template-case",
     "selling_price": 2900,
