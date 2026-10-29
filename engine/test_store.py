@@ -193,11 +193,12 @@ class SQLiteStoreTests(unittest.TestCase):
 
         self.assertIsNone(self.store.get_record(self.analyst, "evidence", "evidence-denied"))
         events = self.store.audit_events(self.auditor)
-        self.assertTrue(any(
-            event["outcome"] == "DENIED"
-            and event["resource_id"] == "evidence-denied"
-            for event in events
-        ))
+        denied_event = next(
+            event for event in events
+            if event["outcome"] == "DENIED" and event["resource_id"] == "evidence-denied"
+        )
+        self.assertEqual(denied_event["actor_roles"], ["reviewer"])
+        self.assertEqual(denied_event["authn_method"], "test-fixture")
 
     def test_review_and_stage_decisions_require_separate_roles_and_are_immutable(self):
         review = {
@@ -218,6 +219,7 @@ class SQLiteStoreTests(unittest.TestCase):
         )
         stored_review = self.store.record_decision(self.reviewer, "review-1", review)
         self.assertEqual(stored_review["payload"]["outcome"], "PASS")
+        self.assertEqual(stored_review["payload"]["evidence_snapshots"][0]["revision"], 1)
 
         stage_decision = {
             "decision_type": "STAGE_DECISION",
@@ -238,6 +240,55 @@ class SQLiteStoreTests(unittest.TestCase):
 
         with self.assertRaises(StoreConflict):
             self.store.record_decision(self.approver, "stage-1", stage_decision)
+
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.store._connection.execute(
+                "UPDATE records SET payload_json = '{}' WHERE collection = 'decisions' AND record_id = 'stage-1'"
+            )
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.store._connection.execute(
+                "DELETE FROM records WHERE collection = 'decisions' AND record_id = 'stage-1'"
+            )
+
+    def test_stage_advance_rejects_evidence_changed_after_pass_review(self):
+        self.store.put_record(
+            self.analyst, "evidence", "mutable-evidence", evidence_payload("mutable-evidence"),
+            reason="Capture baseline evidence",
+        )
+        review = {
+            "decision_type": "EVIDENCE_REVIEW",
+            "outcome": "PASS",
+            "subject_id": "claim:delivery-rate",
+            "rationale": "Baseline evidence reviewed",
+            "evidence_refs": ["mutable-evidence"],
+            "reviewed_at": "2026-10-29T12:10:00+00:00",
+        }
+        self.store.record_decision(self.reviewer, "review-old", review)
+        self.store.put_record(
+            self.analyst, "evidence", "mutable-evidence",
+            evidence_payload("mutable-evidence", evidence_label="observed", sample_size=11),
+            expected_revision=1,
+            reason="Correct source snapshot after review",
+        )
+        stage = {
+            "decision_type": "STAGE_DECISION",
+            "outcome": "ADVANCE",
+            "subject_id": "case:stale-review",
+            "rationale": "Try to advance on a stale review",
+            "evidence_refs": ["mutable-evidence"],
+            "reviewed_at": "2026-10-29T12:20:00+00:00",
+            "stop_condition": "Stop on negative contribution",
+            "rollback_plan": "Return stage to HOLD",
+        }
+        with self.assertRaisesRegex(ValueError, "current PASS review"):
+            self.store.record_decision(self.approver, "stage-stale", stage)
+
+        refreshed_review = dict(review)
+        refreshed_review["rationale"] = "Corrected evidence revision reviewed"
+        refreshed_review["reviewed_at"] = "2026-10-29T12:25:00+00:00"
+        self.store.record_decision(self.reviewer, "review-new", refreshed_review)
+        approved = self.store.record_decision(self.approver, "stage-fresh", stage)
+        self.assertEqual(approved["payload"]["outcome"], "ADVANCE")
 
     def test_unsafe_or_underspecified_advance_is_rejected(self):
         payload = {
