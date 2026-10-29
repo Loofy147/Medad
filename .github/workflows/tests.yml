@@ -1,0 +1,17 @@
+name: tests
+on:
+  push:
+  pull_request:
+jobs:
+  python-unit-economics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run deterministic engine tests
+        working-directory: engine
+        run: python -m unittest -v
+      - name: Verify UI syntax and evidence snapshot
+        run: python scripts/verify_frontend.py

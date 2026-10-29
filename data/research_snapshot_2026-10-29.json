@@ -1,0 +1,551 @@
+{
+  "snapshot_id": "medad-market-snapshot-2026-10-29-v1",
+  "captured_at": "2026-10-29",
+  "market": "Algeria",
+  "currency": "DZD",
+  "method": "Manual public-page review. Asking prices and listing views are observational signals only; they are not transaction prices, order counts, supplier quotes, or proof of demand.",
+  "sources": [
+    {
+      "id": "ouedkniss-car-seat-organizer",
+      "publisher": "Ouedkniss marketplace listing",
+      "title": "Maxwell Drive Vault car-seat organizer",
+      "url": "https://www.ouedkniss.com/autres-accessoires-maxwell-remplisseur-de-siege-voiture-avec-porte-charge-universel-organisateur-dely-brahim-hydra-kouba-alger-algerie-d47178119",
+      "source_type": "marketplace_listing",
+      "listing_date": "2026-09-25",
+      "observed_facts": {
+        "asking_price_dzd": 4500,
+        "listing_views_at_capture": 1514,
+        "seller_location": "Dely Ibrahim, Algiers"
+      },
+      "evidence_limitations": [
+        "Asking price, not confirmed transaction price",
+        "Listing views are not purchases",
+        "Availability and price may change",
+        "No wholesale or landed cost disclosed"
+      ]
+    },
+    {
+      "id": "ouedkniss-car-phone-mounts",
+      "publisher": "Ouedkniss marketplace search results",
+      "title": "Car phone holders — category search snapshot",
+      "url": "https://www.ouedkniss.com/s/?keywords=support-voiture&lang=fr",
+      "source_type": "marketplace_search_snapshot",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "example_asking_prices_dzd": [
+          650,
+          800,
+          900,
+          1200,
+          1500,
+          2400,
+          2900,
+          5500,
+          6000
+        ],
+        "interpretation": "Observed offers include different models/brands; values are not an apples-to-apples comparable range."
+      },
+      "evidence_limitations": [
+        "Several competing offers surfaced",
+        "Different models and brands",
+        "Search-result capture can change",
+        "No order/sales data",
+        "No wholesale or landed cost disclosed"
+      ]
+    },
+    {
+      "id": "ouedkniss-bathroom-basket",
+      "publisher": "Ouedkniss marketplace search results",
+      "title": "Woven bathroom storage basket, four compartments",
+      "url": "https://www.ouedkniss.com/maison/2?keywords=rangements&lang=fr",
+      "source_type": "marketplace_search_snapshot",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "example_asking_prices_dzd": [
+          1900,
+          2500
+        ],
+        "displayed_listing_age": "approximately 7–8 months in the reviewed results"
+      },
+      "evidence_limitations": [
+        "Price observations are stale",
+        "Listings may not be comparable",
+        "No sales/demand data",
+        "No wholesale or landed cost disclosed"
+      ]
+    },
+    {
+      "id": "ouedkniss-screen-cleaning-kit",
+      "publisher": "Ouedkniss marketplace search results",
+      "title": "OPULA KCL-1027 screen-cleaning spray and brush kit",
+      "url": "https://www.ouedkniss.com/s/?keywords=brosse-nettoyage&lang=fr",
+      "source_type": "marketplace_search_snapshot",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "asking_price_dzd": 800,
+        "displayed_listing_age": "approximately one month in the reviewed results"
+      },
+      "evidence_limitations": [
+        "Single observed asking price",
+        "Low unit price may not absorb acquisition and COD fulfillment costs",
+        "No bundle conversion evidence",
+        "No wholesale or landed cost disclosed"
+      ]
+    },
+    {
+      "id": "unctad-algeria-etrade",
+      "publisher": "UN Trade and Development (UNCTAD)",
+      "title": "Algeria: eTrade Readiness Assessment",
+      "url": "https://unctad.org/publication/algeria-etrade-readiness-assessment",
+      "source_type": "official_market_context",
+      "observed_facts": {
+        "context": "The assessment describes Algeria's e-commerce ecosystem and historically high use of cash on delivery. It is market context, not product-level demand evidence."
+      },
+      "evidence_limitations": [
+        "Not a source for demand for any individual SKU",
+        "Some metrics refer to prior reporting periods",
+        "Do not use as current category conversion or return-rate data"
+      ]
+    },
+    {
+      "id": "yalidine-agencies",
+      "publisher": "Yalidine official website",
+      "title": "Official agency directory, including Blida locations",
+      "url": "https://www.yalidine.com/nos-agences/",
+      "source_type": "official_logistics_coverage",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "context": "Agency locations can be checked; the reviewed page is not a price quote and does not establish actual outbound/return charges for a specific seller contract."
+      },
+      "evidence_limitations": [
+        "No seller-specific quote",
+        "No confirmed return/refusal fee schedule",
+        "No service-level commitment or cash-remittance timing verified"
+      ]
+    },
+    {
+      "id": "aps-online-payment-update-2026-08-07",
+      "publisher": "Algeria Press Service (APS)",
+      "title": "Online-payment merchant and transaction update",
+      "url": "https://www.aps.dz/economie/commerce-et-service/msip5jny-%D8%B9%D8%AF%D8%AF-%D8%A7%D9%84%D8%AA%D8%AC%D8%A7%D8%B1-%D8%A7%D9%84%D8%B0%D9%8A%D9%86-%D9%8A%D9%88%D9%81%D8%B1%D9%88%D9%86-%D8%AE%D8%AF%D9%85%D8%A9-%D8%A7%D9%84%D8%AF%D9%81%D8%B9-%D8%B9%D8%A8%D8%B1-%D8%A7%D9%84%D8%A7%D9%94%D9%84%D9%81",
+      "source_type": "official_payment_system_context",
+      "publication_date": "2026-08-07",
+      "observed_facts": {
+        "context": "APS reports growth in online payment merchants/transaction counts, while noting that some growth was influenced by public-service payments such as AADL 3 and Hajj. These aggregate payments do not establish demand for a consumer SKU."
+      },
+      "evidence_limitations": [
+        "Aggregate payment activity is not product-level sales data",
+        "Transactions include non-retail and public-service payments",
+        "Not a source for conversion, CAC, delivery rate, return rate, or willingness to buy a candidate product"
+      ]
+    },
+    {
+      "id": "hnaya-wholesale-discovery",
+      "publisher": "Hnaya Source",
+      "title": "Algerian wholesale discovery search by image/name",
+      "url": "https://hnaya.me/",
+      "source_type": "wholesale_discovery_platform",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "publisher_claims": "Search engine for wholesale offers publicly posted on Algerian Telegram channels; homepage states more than 330,000 products and 500+ wholesalers with daily updates.",
+        "free_access": "Browse listings/prices; seller contact information is in paid plans.",
+        "plans_dzd": {
+          "starter_monthly": 1490,
+          "pro_monthly": 2900
+        }
+      },
+      "evidence_limitations": [
+        "Platform is a discovery index, not the seller, warehouse, courier, or guarantor",
+        "Counts and daily-refresh statements are platform claims, not independently audited",
+        "A surfaced offer is not a verified quote until SKU, quantity tier, date, conditions, and seller identity are captured",
+        "Seller-contact plans have a fee; no subscription or contact has been purchased or obtained"
+      ]
+    },
+    {
+      "id": "hnaya-privacy-2026-10-27",
+      "publisher": "Hnaya Source legal/privacy",
+      "title": "Privacy and legal disclosure",
+      "url": "https://hnaya.me/legal",
+      "source_type": "supplier_platform_due_diligence",
+      "publication_date": "2026-10-27",
+      "observed_facts": {
+        "context": "The platform disclosure states account data may include Google account name/email/ID, search terms/counts, IP address and a device-identifying cookie; it says product search photos are used for matching and not retained."
+      },
+      "evidence_limitations": [
+        "Self-reported policy, not an independent privacy audit",
+        "Use only product photos without personal/customer details when searching",
+        "Review terms and privacy before account connection or paid subscription"
+      ]
+    },
+    {
+      "id": "kabagros-wholesale-lots",
+      "publisher": "Kabagros",
+      "title": "Marketplace for professional wholesale lots",
+      "url": "https://kabagros.com/?prix_fixe=1",
+      "source_type": "wholesale_discovery_platform",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "displayed_example": "Plastic storage boxes in Algiers around 2,890–3,490 DZD/pc with displayed lot size 50 pcs, posted approximately 75 days earlier in reviewed results.",
+        "context": "The observed offers are leads for sourcing research, not an equivalent supplier quote for the bathroom basket or any shortlisted candidate."
+      },
+      "evidence_limitations": [
+        "The displayed storage item is not proven equivalent to the candidate basket",
+        "Example listing was roughly 75 days old at capture; availability and price may change",
+        "Platform legal terms say it is only a connection intermediary and does not guarantee goods, member solvency, payment, or transportation",
+        "Kabagros legal notice had fields marked to be completed when reviewed; verify trader identity and documents directly"
+      ]
+    },
+    {
+      "id": "kabagros-legal-2026-07",
+      "publisher": "Kabagros legal notice and terms",
+      "title": "Platform role and limitations",
+      "url": "https://kabagros.com/mentions-legales",
+      "source_type": "supplier_platform_due_diligence",
+      "publication_date": "2026-07",
+      "observed_facts": {
+        "context": "Kabagros describes itself as an intermediary; the transaction forms directly between members. The legal notice leaves company registration and representative details as fields to be completed. Its terms say a verified badge only indicates that activity documentation was presented, not quality or solvency."
+      },
+      "evidence_limitations": [
+        "Platform disclosures are not independent checks of an individual lot",
+        "Seller, product, authenticity, stock, quantity, and terms must be verified directly"
+      ]
+    },
+    {
+      "id": "itidjar-wholesale-marketplace",
+      "publisher": "Itidjar",
+      "title": "Algerian wholesale marketplace",
+      "url": "https://itidjar.com/",
+      "source_type": "wholesale_discovery_platform",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "platform_claims": "Homepage claims a wholesale marketplace with dozens of listed products, 69 wilayas covered, over 2,000 successful transactions, payment options, and delivery coverage."
+      },
+      "evidence_limitations": [
+        "These are publisher claims and have not been independently audited",
+        "Do not infer that the platform claims imply any product is in stock, profitable, or available on terms appropriate to Medad",
+        "Check seller legal identity, current availability, return terms, and fees before transacting"
+      ]
+    },
+    {
+      "id": "svc-corporation-phone-holder-wholesale-prospect",
+      "publisher": "SVC Corporation / Ouedkniss",
+      "title": "LDNIO car phone support — retail listing with wholesale inquiry",
+      "url": "https://www.ouedkniss.com/store/9348/svc-corporation/annonce/33191438",
+      "source_type": "retail_listing_and_wholesale_prospect",
+      "listing_date": "2026-07-08",
+      "observed_facts": {
+        "asking_price_range_dzd": [
+          1500,
+          1700
+        ],
+        "listing_views_at_capture": 583,
+        "sku_codes": [
+          "MG08",
+          "MG03"
+        ],
+        "seller_statement": "Listing says retail and wholesale are available and asks buyers to call for wholesale pricing; seller claims delivery to 58 wilayas and COD."
+      },
+      "evidence_limitations": [
+        "Wholesale quote has not been received",
+        "Retail listing and seller claims are not independently verified",
+        "Listing page returned 503 during re-open; validate availability and seller details before relying on it",
+        "Views do not demonstrate completed sales"
+      ]
+    },
+    {
+      "id": "hted-car-phone-holders-retail-benchmark",
+      "publisher": "H-TED Store",
+      "title": "Car phone-holder category and retail listings",
+      "url": "https://www.htedstore.com/categorie-produit/supports/supports-voiture/",
+      "source_type": "retail_price_benchmark",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "listed_references": 25,
+        "examples_dzd": [
+          810,
+          1100,
+          1382,
+          1400,
+          1750,
+          1800,
+          2300,
+          2350,
+          2900,
+          3000,
+          3200,
+          3800
+        ],
+        "context": "Multiple distinct models/brands such as HOCO, Borofone and Acefast are displayed, with COD and delivery claims."
+      },
+      "evidence_limitations": [
+        "Retail prices, not wholesale landed costs",
+        "Not all items are same model/specification",
+        "Delivery and availability should be confirmed at checkout",
+        "Price page was not independently captured as a stable snapshot after the search result"
+      ]
+    },
+    {
+      "id": "kroussa-car-organizer-retail-benchmark",
+      "publisher": "Kroussa",
+      "title": "Car interior organizers and storage retail category",
+      "url": "https://kroussa.com/categorie-produit/accessoires-interieur-voiture/organisateur-rangement-voiture/",
+      "source_type": "retail_price_benchmark",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "examples": [
+          {
+            "name": "multifunction seat organizer 2 pcs",
+            "price_dzd": 3100
+          },
+          {
+            "name": "seat-back organizer",
+            "price_dzd": 1250
+          },
+          {
+            "name": "sun-visor organizer",
+            "price_dzd": 1100
+          },
+          {
+            "name": "trunk organizer",
+            "price_dzd": 650
+          }
+        ]
+      },
+      "evidence_limitations": [
+        "Different product types and pack sizes are not directly comparable",
+        "Retail offers do not disclose supplier cost or actual units sold",
+        "Current stock and delivery terms require re-check"
+      ]
+    },
+    {
+      "id": "tidjara-seat-gap-organizer-retail-snapshot",
+      "publisher": "Tidjara",
+      "title": "Car-seat gap organizer retail listing",
+      "url": "https://tidjara.dz/produit/organisateur-pour-siege-voiture-multifonction-noir/",
+      "source_type": "retail_listing_unavailable_on_reopen",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "search_indexed_asking_price_dzd": 1800,
+        "search_indexed_stock_units": 1,
+        "search_indexed_spec": "ABS plastic, 26 x 7.5 x 9.1 cm, cup holder, described as seat-gap organizer"
+      },
+      "evidence_limitations": [
+        "Live page returned 404 when re-opened; treat price and stock as stale/unverified",
+        "This is a search-indexed observation, not a current offer",
+        "Must compare exact dimensions/fit and SKU before treating it as equivalent to the 4,500 DZD listing",
+        "Retail ask does not prove sales"
+      ]
+    },
+    {
+      "id": "promotika-car-seatback-organizer-retail-benchmark",
+      "publisher": "Promotika DZ",
+      "title": "Rear seat-back organizer retail listing",
+      "url": "https://promotika-dz.com/produit/organisateur-dobjets-pour-siege-arriere-pour-plus-despace-avec-un-design-pratique-1pcs-copie/",
+      "source_type": "retail_price_benchmark",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "asking_price_dzd": 2300,
+        "product_type": "seat-back organizer, not the same seat-gap organizer",
+        "seller_location": "Blida",
+        "seller_contact_page_claims": "delivery and COD"
+      },
+      "evidence_limitations": [
+        "Different product geometry and use-case from seat-gap organizer",
+        "Retail price not supplier quote",
+        "Availability and delivery terms need direct confirmation"
+      ]
+    },
+    {
+      "id": "shoppicom-wholesale-phone-accessory-lead",
+      "publisher": "Shoppicom Marketplace",
+      "title": "Wholesale smartphone-accessory marketplace",
+      "url": "https://shoppicom.com/about-us-ar/?sl=fr",
+      "source_type": "wholesale_discovery_platform",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "platform_statement": "The site describes itself as an Algerian wholesale marketplace for phone accessories including mounts/supports, with several delivery options and a Blida contact address."
+      },
+      "evidence_limitations": [
+        "Website page returned 403 during re-open; public summary only",
+        "No specific SKU quote, minimum quantity, stock or delivery rate obtained",
+        "Claims of quality and delivery are self-published and not independently audited"
+      ]
+    }
+  ],
+  "candidates": [
+    {
+      "id": "car-seat-gap-organizer",
+      "name_ar": "منظّم الفجوة بين مقعد السيارة والكونسول",
+      "category": "car_accessories",
+      "status": "RESEARCH_ONLY",
+      "source_ids": [
+        "ouedkniss-car-seat-organizer",
+        "tidjara-seat-gap-organizer-retail-snapshot",
+        "kroussa-car-organizer-retail-benchmark",
+        "promotika-car-seatback-organizer-retail-benchmark"
+      ],
+      "market_signal": "One listing with an asking price and view count; views do not prove sales.",
+      "market_price_observed_dzd": {
+        "low": 4500,
+        "high": 4500,
+        "basis": "single listing only"
+      },
+      "product_spec_verified": false,
+      "supplier_quotes_count": 0,
+      "landed_cost_verified": false,
+      "courier_quote_verified": false,
+      "pilot_campaign_evidence": false,
+      "delivered_order_cohort_evidence": false,
+      "repeatable_cohorts": 0,
+      "notes": [
+        "Investigate wholesale/supplier price and product fit",
+        "Inspect a sample before any stock commitment",
+        "No profitability conclusion is available"
+      ],
+      "competitive_risk": "Potentially high: one similar seat-gap retail listing was indexed at 1,800 DZD but the URL returned 404 on re-open; different organizer forms are listed around 1,100–3,100 DZD. Exact SKU comparability and current prices are unverified. Do not use the 4,500 DZD listing as expected selling price without testing."
+    },
+    {
+      "id": "car-phone-holder",
+      "name_ar": "حامل هاتف للسيارة",
+      "category": "car_accessories",
+      "status": "RESEARCH_ONLY",
+      "source_ids": [
+        "ouedkniss-car-phone-mounts",
+        "svc-corporation-phone-holder-wholesale-prospect",
+        "hted-car-phone-holders-retail-benchmark"
+      ],
+      "market_price_observed_dzd": {
+        "low": 650,
+        "high": 6000,
+        "basis": "heterogeneous category offers, not like-for-like"
+      },
+      "product_spec_verified": false,
+      "supplier_quotes_count": 0,
+      "landed_cost_verified": false,
+      "courier_quote_verified": false,
+      "pilot_campaign_evidence": false,
+      "delivered_order_cohort_evidence": false,
+      "repeatable_cohorts": 0,
+      "notes": [
+        "Category shows multiple competing offers",
+        "A generic holder may be commoditized",
+        "Only proceed with a distinct validated specification or bundle"
+      ],
+      "wholesale_lead": "SVC Corporation listing says wholesale pricing can be requested by phone, but no quote has been obtained; listing re-open returned 503. Shoppicom is another wholesale discovery lead, but its page returned 403 and offers no specific product quote."
+    },
+    {
+      "id": "bathroom-storage-basket",
+      "name_ar": "سلة تنظيم للحمام بأربعة أقسام",
+      "category": "home_organization",
+      "status": "RESEARCH_ONLY",
+      "source_ids": [
+        "ouedkniss-bathroom-basket"
+      ],
+      "market_price_observed_dzd": {
+        "low": 1900,
+        "high": 2500,
+        "basis": "older marketplace listings"
+      },
+      "product_spec_verified": false,
+      "supplier_quotes_count": 0,
+      "landed_cost_verified": false,
+      "courier_quote_verified": false,
+      "pilot_campaign_evidence": false,
+      "delivered_order_cohort_evidence": false,
+      "repeatable_cohorts": 0,
+      "notes": [
+        "Refresh asking prices; currentness is weak",
+        "Check dimensions and packaging volume",
+        "No profitability conclusion is available"
+      ]
+    },
+    {
+      "id": "screen-cleaning-kit",
+      "name_ar": "عدة تنظيف الشاشة مع رذاذ وفرشاة",
+      "category": "small_accessories",
+      "status": "RESEARCH_ONLY",
+      "source_ids": [
+        "ouedkniss-screen-cleaning-kit"
+      ],
+      "market_price_observed_dzd": {
+        "low": 800,
+        "high": 800,
+        "basis": "single observed asking price"
+      },
+      "product_spec_verified": false,
+      "supplier_quotes_count": 0,
+      "landed_cost_verified": false,
+      "courier_quote_verified": false,
+      "pilot_campaign_evidence": false,
+      "delivered_order_cohort_evidence": false,
+      "repeatable_cohorts": 0,
+      "notes": [
+        "Test bundle economics rather than single-unit assumptions",
+        "Verify quality and compatibility",
+        "No profitability conclusion is available"
+      ]
+    }
+  ],
+  "global_missing_evidence": [
+    "Two comparable supplier/wholesale quotes per shortlisted product",
+    "Sample inspection and product specification",
+    "Landed cost including domestic procurement, packaging, and loss allowance",
+    "Seller-specific outbound, failed-delivery, return, and cash-remittance courier terms by wilaya",
+    "Creative test metrics and advertising cost per placed order",
+    "Observed order-confirmation, delivery, refusal, return, and retained-order cohort metrics",
+    "Explicit cash budget, stock cap, stop-loss threshold, and profit-sharing terms",
+    "Current matching supplier listings, quote screenshots/documents, seller identity checks, and exact SKU/quantity terms from Hnaya Source/Kabagros/Itidjar or direct wholesalers; discovery platforms are not themselves supplier quotes."
+  ],
+  "decision": "No product is investment-ready. Car-seat organizer has explicit competitive-price risk: a similar search-indexed 1,800 DZD offer was inaccessible on re-open and must be revalidated; other organizers are not exact equivalents. Phone holders have a wholesale-contact lead but no quote. All five sourcing leads remain unverified and no product has verified delivered-order economics.",
+  "sourcing_leads": [
+    {
+      "id": "lead-hnaya",
+      "platform_source_id": "hnaya-wholesale-discovery",
+      "due_diligence_source_ids": [
+        "hnaya-privacy-2026-10-27"
+      ],
+      "purpose": "Find current wholesale listings by exact product name/photo; record source link, posting date, SKU, seller, quantity tier and delivery terms.",
+      "status": "DISCOVERY_LEAD_ONLY",
+      "subscription_purchased": false,
+      "quote_verified": false
+    },
+    {
+      "id": "lead-kabagros",
+      "platform_source_id": "kabagros-wholesale-lots",
+      "due_diligence_source_ids": [
+        "kabagros-legal-2026-07"
+      ],
+      "purpose": "Search public professional lots and request direct written terms; use only as lead unless SKU and seller terms are verified.",
+      "status": "DISCOVERY_LEAD_ONLY",
+      "subscription_purchased": false,
+      "quote_verified": false
+    },
+    {
+      "id": "lead-itidjar",
+      "platform_source_id": "itidjar-wholesale-marketplace",
+      "due_diligence_source_ids": [],
+      "purpose": "Secondary wholesale-directory lead; verify any claims and exact listing/seller before treating as an offer.",
+      "status": "DISCOVERY_LEAD_ONLY",
+      "subscription_purchased": false,
+      "quote_verified": false
+    },
+    {
+      "id": "lead-svc-corporation",
+      "platform_source_id": "svc-corporation-phone-holder-wholesale-prospect",
+      "due_diligence_source_ids": [],
+      "purpose": "Contact seller through the public listing to request a dated wholesale quote by exact SKU, quantity tier, invoice and delivery terms.",
+      "status": "CONTACT_REQUIRED_NOT_VERIFIED",
+      "subscription_purchased": false,
+      "quote_verified": false
+    },
+    {
+      "id": "lead-shoppicom",
+      "platform_source_id": "shoppicom-wholesale-phone-accessory-lead",
+      "due_diligence_source_ids": [],
+      "purpose": "Wholesale discovery avenue for phone accessories; validate operator, product SKU, MOQ and quote terms before any purchase.",
+      "status": "DISCOVERY_LEAD_ONLY",
+      "subscription_purchased": false,
+      "quote_verified": false
+    }
+  ]
+}
