@@ -212,13 +212,27 @@ def classify(profit: float, placed: int, x: Inputs) -> dict[str, str]:
     if placed <= 0:
         return {"status": "NO_VOLUME", "meaning": "No order volume supplied; cannot assess viability."}
     if profit < 0:
-        return {"status": "LOSS", "meaning": "Negative modeled profit under current assumptions."}
+        return {"status": "LOSS_UNDER_CURRENT_INPUTS", "meaning": "Negative modeled profit under current inputs; validate costs and operational assumptions before concluding."}
+
+    quality = assess_data_quality(x)
+    if quality["grade"] in {"UNKNOWN", "LOW"}:
+        return {
+            "status": "UNVERIFIED_ECONOMICS",
+            "meaning": "The model is positive, but source coverage, sample size or freshness is insufficient; do not treat this as a profitable-product signal.",
+        }
     if (
-        x.delivery_rate < 0.55 or x.customer_return_rate > 0.15
-        or (x.confidence and sum(x.confidence.values()) / len(x.confidence) < 0.55)
+        x.delivery_rate < 0.55
+        or x.customer_return_rate > 0.15
+        or quality["grade"] != "HIGH"
     ):
-        return {"status": "HIGH_OPERATIONAL_RISK", "meaning": "Profit is positive in the model, but delivery, returns, or evidence quality needs attention."}
-    return {"status": "TEST_CANDIDATE", "meaning": "Positive modeled profit; run a controlled test before scaling."}
+        return {
+            "status": "HIGH_OPERATIONAL_RISK",
+            "meaning": "The modeled result is positive, but delivery/return performance or evidence quality needs controlled testing before any scale decision.",
+        }
+    return {
+        "status": "TEST_CANDIDATE",
+        "meaning": "A positive modeled result with recent, traceable evidence and adequate sample; this permits a bounded test, not inventory scale-up.",
+    }
 
 
 def scenarios(base: Inputs) -> dict[str, dict[str, Any]]:
