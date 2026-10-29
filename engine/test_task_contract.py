@@ -9,7 +9,7 @@ def stamp(delta_seconds: float = 0.0) -> str:
 
 
 def task_payload(task_id: str = "task-1", **overrides) -> dict:
-    now = stamp()
+    now = stamp(-1)
     payload = {
         "schema_version": "medad.task.v1",
         "task_id": task_id,
@@ -35,7 +35,7 @@ def task_payload(task_id: str = "task-1", **overrides) -> dict:
 
 
 def transition(previous: dict, to_status: str, *, reason: str = "Explicit task transition") -> dict:
-    occurred = stamp(0.01)
+    occurred = stamp(-0.1)
     updated = dict(previous)
     updated["status"] = to_status
     updated["updated_at"] = occurred
