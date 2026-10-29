@@ -56,6 +56,15 @@ class DecisionRunJournalTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "checksum mismatch"):
                 journal.list_runs()
 
+    def test_journal_rejects_report_tampering_before_append_even_with_valid_json(self):
+        report = sample_report("tampered-before-append")
+        report["economics"]["profit"]["net_profit"] = 123456789.0
+        with tempfile.TemporaryDirectory() as directory:
+            journal = DecisionRunJournal(Path(directory) / "runs.jsonl")
+            with self.assertRaisesRegex(ValueError, "report_hash"):
+                journal.append(report)
+            self.assertEqual(journal.list_runs(), [])
+
     def test_journal_rejects_report_claiming_authorization(self):
         report = sample_report("unauthorized-run")
         report["decision"]["authorization_granted"] = True
