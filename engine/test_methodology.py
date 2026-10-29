@@ -14,6 +14,8 @@ from engine import Inputs, evaluate
 from instant import IdempotencyConflict, JsonlEventJournal, generate_instant_events
 from sensitivity import find_profit_threshold, sensitivity_report
 
+CLAIM_SCOPE = {"subject": "campaign", "metric": "outcome-rate"}
+
 
 def observed_experiment(evidence_id: str, independence_key: str, *, polarity: str = "supports") -> dict:
     return {
@@ -26,12 +28,13 @@ def observed_experiment(evidence_id: str, independence_key: str, *, polarity: st
         "independence_key": independence_key,
         "sample_size": 50,
         "method_ref": "method://pilot-v1",
+        "scope": dict(CLAIM_SCOPE),
     }
 
 
 class DecisionKernelTests(unittest.TestCase):
     def test_established_claim_requires_two_independent_supports(self):
-        claim = {"claim_id": "c1", "statement": "Observed outcome repeats", "declared_status": "ESTABLISHED", "evidence_refs": ["e1"]}
+        claim = {"claim_id": "c1", "statement": "Observed outcome repeats", "declared_status": "ESTABLISHED", "evidence_refs": ["e1"], "scope": dict(CLAIM_SCOPE)}
         one = assess_claim(claim, [observed_experiment("e1", "campaign-a")])
         self.assertEqual(one["effective_status"], "OPEN")
         self.assertFalse(one["decision_usable"])
@@ -45,7 +48,7 @@ class DecisionKernelTests(unittest.TestCase):
         self.assertTrue(two["decision_usable"])
 
     def test_mixed_support_and_contradiction_stays_open(self):
-        claim = {"claim_id": "c2", "statement": "Campaign succeeds", "declared_status": "INFERENCE", "evidence_refs": ["e1", "e2"]}
+        claim = {"claim_id": "c2", "statement": "Campaign succeeds", "declared_status": "INFERENCE", "evidence_refs": ["e1", "e2"], "scope": dict(CLAIM_SCOPE)}
         result = assess_claim(claim, [
             observed_experiment("e1", "campaign-a"),
             observed_experiment("e2", "campaign-b", polarity="contradicts"),
@@ -59,11 +62,27 @@ class DecisionKernelTests(unittest.TestCase):
             "evidence_id": "e1", "source_kind": "url", "source_ref": "https://example.org/listing",
             "evidence_label": "assumed", "polarity": "supports",
             "observed_on": date.today().isoformat(), "independence_key": "source-a",
+            "scope": {"subject": "generic-product", "metric": "demand"},
         }
-        claim = {"claim_id": "c3", "statement": "Demand is strong", "declared_status": "INFERENCE", "evidence_refs": ["e1"]}
+        claim = {"claim_id": "c3", "statement": "Demand is strong", "declared_status": "INFERENCE", "evidence_refs": ["e1"],
+                 "scope": {"subject": "generic-product", "metric": "demand"}}
         result = assess_claim(claim, [evidence])
         self.assertEqual(result["effective_status"], "OPEN")
         self.assertFalse(result["decision_usable"])
+
+    def test_scope_mismatch_keeps_claim_open(self):
+        claim = {"claim_id": "c-scope", "statement": "Product A has demand", "declared_status": "INFERENCE",
+                 "evidence_refs": ["e-scope"], "scope": {"subject": "product-a", "metric": "demand", "geography": "Blida"}}
+        evidence = {
+            "evidence_id": "e-scope", "source_kind": "url", "source_ref": "https://example.org/demand",
+            "evidence_label": "observed", "polarity": "supports", "observed_on": date.today().isoformat(),
+            "sample_size": 50, "independence_key": "listing-a",
+            "scope": {"subject": "product-a", "metric": "demand", "geography": "Algiers"},
+        }
+        result = assess_claim(claim, [evidence])
+        self.assertEqual(result["effective_status"], "OPEN")
+        self.assertFalse(result["decision_usable"])
+        self.assertTrue(any("scope mismatch" in error for errors in result["evidence_errors"].values() for error in errors))
 
     def test_experiment_record_cannot_be_labeled_estimated(self):
         evidence = observed_experiment("e1", "campaign-a")
