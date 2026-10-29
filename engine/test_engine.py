@@ -70,6 +70,24 @@ class UnitEconomicsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             evaluate(Inputs(evidence_sources={"unit_cost": {"url": "not-a-url", "observed_on": "2026-10-29", "label": "quoted"}}))
 
+    def test_evidence_source_label_must_match_input_label(self):
+        with self.assertRaises(ValueError):
+            evaluate(Inputs(
+                evidence={"unit_cost": "assumed"},
+                evidence_sources={"unit_cost": {"url": "https://example.com/quote", "observed_on": "2026-10-29", "label": "quoted"}},
+            ))
+
+    def test_stale_source_dates_override_falsely_fresh_user_age(self):
+        groups = ["unit_cost", "selling_price", "delivery_rate", "return_rate", "ad_cost"]
+        result = evaluate(Inputs(
+            confidence={key: .95 for key in groups},
+            evidence={key: "observed" for key in groups},
+            evidence_sources={key: {"url": "https://example.com/" + key, "observed_on": "2020-01-01", "label": "observed"} for key in groups},
+            sample_size=500, data_age_days=1,
+        ))
+        self.assertGreater(result["data_quality"]["data_age_days"], 90)
+        self.assertEqual(result["data_quality"]["grade"], "LOW")
+
     def test_traceable_source_metadata_is_reported(self):
         result = evaluate(Inputs(
             confidence={"unit_cost": .9}, evidence={"unit_cost": "quoted"},
@@ -93,6 +111,12 @@ class OpportunityGateTests(unittest.TestCase):
         candidate = {"id": "quoted", "product_spec_verified": True, "supplier_quotes_count": 2,
                      "landed_cost_verified": True, "courier_quote_verified": True}
         self.assertEqual(assess_candidate(candidate)["stage"], "PRETEST_READY")
+
+    def test_fractional_supplier_quote_count_does_not_pass_gate(self):
+        from opportunity import assess_candidate
+        candidate = {"id": "fractional", "product_spec_verified": True, "supplier_quotes_count": 2.5,
+                     "landed_cost_verified": True, "courier_quote_verified": True}
+        self.assertEqual(assess_candidate(candidate)["stage"], "RESEARCH_ONLY")
 
     def test_single_cohort_needs_repeatability_before_scale_review(self):
         from opportunity import assess_candidate
