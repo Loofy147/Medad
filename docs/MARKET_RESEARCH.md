@@ -16,6 +16,20 @@ The current public snapshot provides weak evidence of asking prices for a few re
 | Four-compartment bathroom basket | Ouedkniss results showed examples around 1,900–2,500 DZD, with displayed listing ages around 7–8 months | Stale price signal; refresh before using | Current listings, supplier quotes, dimensional/packaging cost, demand data |
 | Screen-cleaning spray/brush kit | One Ouedkniss search result showed an 800 DZD asking price | Unit price may be too low to absorb acquisition and COD costs as a single-item offer; test a bundle only after sourcing | Wholesale price, quality sample, bundle economics, CAC and delivery outcomes |
 
+### Competitive checks added on 2026-10-29
+
+The first version of the organizer hypothesis is **not accepted as a winner**. The original 4,500 DZD Ouedkniss listing has at least one lower search-indexed offer for a similarly described seat-gap organizer at 1,800 DZD on Tidjara, but the Tidjara URL returned 404 when re-opened. Other differently shaped organizers appear at around 1,100–3,100 DZD on retail pages. This may indicate a serious price-comparison risk, but the SKUs are not proven equivalent and the lower listing is not currently verified. Decision: hold the 4,500 DZD assumption until exact geometry/specification and currently available competitor listings are reconciled.
+
+For phone holders, the public Ouedkniss listing from SVC Corporation (dated 8 July 2026) displayed a retail price range of 1,500–1,700 DZD and explicitly invited contact for wholesale prices. The page returned 503 when re-opened, so this is a **contact lead**, not an available current quote. H-TED's retail category showed many branded models at differing prices; those are retail benchmarks and indicate competition, not wholesale economics.
+
+### Source and data-quality findings
+
+- A 4,500 DZD retail ask does not imply there is room for acquisition cost, delivery/refusal charges, ad spend and retained-order margin.
+- A lower search result that can no longer be re-opened is marked unavailable/stale, not silently used as a live competitor price.
+- For the SVC lead, next action is to request a dated written quote for an exact model and quantity tiers; validate seller identity, tax invoice, stock, product sample, warranty/defect process and delivery terms.
+- For the car-seat organizer, an exact-SKU benchmark should precede supplier outreach. Do not mix seat-gap organizers, rear seat-back organizers, trunk organizers, and 2-piece sets into one price distribution.
+- These additions reduce confidence in the existing candidates rather than adding a fake profitability ranking.
+
 ### Sources reviewed
 
 1. [Ouedkniss — Maxwell Drive Vault car-seat organizer](https://www.ouedkniss.com/autres-accessoires-maxwell-remplisseur-de-siege-voiture-avec-porte-charge-universel-organisateur-dely-brahim-hydra-kouba-alger-algerie-d47178119) — the listing displayed 4,500 DZD, 1,514 views, and a 2026-09-25 listing date at review time. The site's own disclaimer says the displayed item/service belongs to the advertiser and Ouedkniss is not responsible for it.
