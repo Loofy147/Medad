@@ -30,6 +30,8 @@ def event_fingerprint(event: dict[str, Any]) -> str:
 
 
 def validate_event(event: dict[str, Any]) -> list[str]:
+    if not isinstance(event, dict):
+        return ["event must be an object"]
     errors: list[str] = []
     for field in ("event_id", "idempotency_key", "event_type", "priority", "subject_id", "observed_at", "summary", "recommended_action", "trigger_rule", "state", "created_at"):
         if not isinstance(event.get(field), str) or not event[field].strip():
@@ -286,10 +288,10 @@ class JsonlEventJournal:
 
     def transition(self, event_id: str, new_state: str, *, actor: str, reason: str) -> dict[str, Any]:
         """Append a state-transition event instead of rewriting history."""
-        if new_state not in EVENT_STATES:
+        if not isinstance(new_state, str) or new_state not in EVENT_STATES:
             raise ValueError(f"new_state must be one of {sorted(EVENT_STATES)}")
-        if not actor.strip() or not reason.strip():
-            raise ValueError("actor and reason are required")
+        if not isinstance(actor, str) or not actor.strip() or not isinstance(reason, str) or not reason.strip():
+            raise ValueError("actor and reason must be non-empty strings")
         current = next((e for e in self.list_events() if e["event_id"] == event_id), None)
         if current is None:
             raise KeyError(f"Unknown event_id: {event_id}")
