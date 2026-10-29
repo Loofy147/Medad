@@ -33,7 +33,7 @@ def validate_event(event: dict[str, Any]) -> list[str]:
     if not isinstance(event, dict):
         return ["event must be an object"]
     errors: list[str] = []
-    for field in ("event_id", "idempotency_key", "event_type", "priority", "subject_id", "observed_at", "summary", "recommended_action", "trigger_rule", "state", "created_at"):
+    for field in ("event_id", "idempotency_key", "event_type", "priority", "subject_id", "observed_at", "summary", "recommended_action", "trigger_rule", "action_kind", "state", "created_at"):
         if not isinstance(event.get(field), str) or not event[field].strip():
             errors.append(f"{field} is required")
     if not isinstance(event.get("priority"), str) or event["priority"] not in PRIORITIES:
@@ -51,6 +51,19 @@ def validate_event(event: dict[str, Any]) -> list[str]:
             errors.append(f"{field} must be an object")
     if isinstance(event.get("state_delta"), dict) and event["state_delta"].get("to") != event.get("state"):
         errors.append("state_delta.to must match the current event state")
+    if event.get("action_kind") not in {"RECOMMENDATION_ONLY", "STATE_TRANSITION"}:
+        errors.append("action_kind must be RECOMMENDATION_ONLY or STATE_TRANSITION")
+    if isinstance(event.get("context"), dict):
+        if event["context"].get("subject_id") != event.get("subject_id"):
+            errors.append("context.subject_id must match subject_id")
+        if not isinstance(event["context"].get("snapshot_hash"), str) or not event["context"]["snapshot_hash"].strip():
+            errors.append("context.snapshot_hash is required")
+    if isinstance(event.get("propagation"), dict) and event["propagation"].get("mode") != "LOCAL_ONLY":
+        errors.append("this prototype only supports LOCAL_ONLY propagation")
+    try:
+        _canonical(event)
+    except (TypeError, ValueError):
+        errors.append("event must be JSON serializable without NaN/Infinity")
     for field in ("observed_at", "created_at"):
         value = event.get(field)
         if isinstance(value, str):
@@ -261,9 +274,20 @@ class JsonlEventJournal:
                     current["updated_at"] = transition["created_at"]
                     current["last_transition_id"] = transition["event_id"]
             events = list(events_by_id.values())
-        requested = set(states) if states is not None else None
-        if requested is not None and not requested.issubset(EVENT_STATES):
-            raise ValueError(f"states must be drawn from {sorted(EVENT_STATES)}")
+        if states is None:
+            requested = None
+        else:
+            if isinstance(states, (str, bytes)):
+                raise ValueError("states must be an iterable of state names, not a single string")
+            try:
+                state_values = list(states)
+            except TypeError as exc:
+                raise ValueError("states must be an iterable of state names") from exc
+            if any(not isinstance(value, str) for value in state_values):
+                raise ValueError("every requested state must be a string")
+            requested = set(state_values)
+            if not requested.issubset(EVENT_STATES):
+                raise ValueError(f"states must be drawn from {sorted(EVENT_STATES)}")
         return [event for event in events if requested is None or event["state"] in requested]
 
     def append(self, event: dict[str, Any]) -> dict[str, Any]:
@@ -277,7 +301,9 @@ class JsonlEventJournal:
                     if event_fingerprint(existing) == event_fingerprint(event):
                         return {"event": existing, "inserted": False, "reason": "IDEMPOTENT_REPLAY"}
                     raise IdempotencyConflict("idempotency_key already exists with a different semantic event")
-                if existing["event_id"] == event["event_id"] and event_fingerprint(existing) != event_fingerprint(event):
+                if existing["event_id"] == event["event_id"]:
+                    if event_fingerprint(existing) == event_fingerprint(event):
+                        return {"event": existing, "inserted": False, "reason": "EVENT_ID_REPLAY"}
                     raise IdempotencyConflict("event_id already exists with different content")
             with self.path.open("a", encoding="utf-8", newline="\n") as file:
                 file.write(json.dumps(event, ensure_ascii=False, sort_keys=True, allow_nan=False) + "\n")
@@ -313,6 +339,7 @@ class JsonlEventJournal:
         transition["actor"] = actor
         transition["new_state"] = new_state
         transition["state"] = new_state
+        transition["action_kind"] = "STATE_TRANSITION"
         transition["state_delta"] = {"from": current["state"], "to": new_state}
         transition["context"] = {"subject_id": current["subject_id"], "snapshot_hash": current.get("snapshot_hash"), "mode": "LOCAL_EVENT_TRANSITION", "previous_event_id": event_id}
         transition["observations"] = {"actor": actor, "reason": reason}
