@@ -106,6 +106,18 @@ class SensitivityEngineTests(unittest.TestCase):
         self.assertTrue(all(item["evidence_quality_unchanged"] for item in first["factors"]))
         self.assertEqual(first["baseline_data_quality"]["grade"], "UNKNOWN")
 
+    def test_sensitivity_custom_empty_grid_is_empty_not_defaulted(self):
+        report = sensitivity_report(Inputs(), {})
+        self.assertEqual(report["factors"], [])
+
+    def test_sensitivity_requires_neutral_central_shock(self):
+        with self.assertRaises(ValueError):
+            sensitivity_report(Inputs(), {"selling_price": (0.8, 1.1, 1.2, "multiply")})
+
+    def test_threshold_rejects_non_monotonic_field(self):
+        with self.assertRaises(ValueError):
+            find_profit_threshold(Inputs(), "delivery_rate", 0.4, 0.8)
+
     def test_sensitivity_rejects_unknown_field(self):
         with self.assertRaises(ValueError):
             sensitivity_report(Inputs(), {"made_up": (0.8, 1.0, 1.2, "multiply")})
@@ -175,6 +187,18 @@ class InstantEventTests(unittest.TestCase):
             self.assertFalse(no_op["inserted"])
             self.assertEqual(no_op["reason"], "ALREADY_IN_STATE")
             self.assertEqual(len(journal.list_events(include_history=True)), 2)
+
+    def test_reopen_cycle_does_not_conflict_with_prior_transition_keys(self):
+        event = generate_instant_events(evaluate(Inputs()), subject_id="cycle-test")[0]
+        with tempfile.TemporaryDirectory() as directory:
+            journal = JsonlEventJournal(Path(directory) / "events.jsonl")
+            stored = journal.append(event)["event"]
+            journal.transition(stored["event_id"], "ACKNOWLEDGED", actor="reviewer", reason="Seen")
+            journal.transition(stored["event_id"], "RESOLVED", actor="reviewer", reason="Evidence attached")
+            journal.transition(stored["event_id"], "OPEN", actor="reviewer", reason="New evidence contradicts resolution")
+            journal.transition(stored["event_id"], "ACKNOWLEDGED", actor="reviewer", reason="Rechecked")
+            self.assertEqual(journal.list_events()[0]["state"], "ACKNOWLEDGED")
+            self.assertEqual(len(journal.list_events(include_history=True)), 5)
 
     def test_invalid_event_rejects_missing_timezone(self):
         event = generate_instant_events(evaluate(Inputs()), subject_id="candidate-demo")[0]
