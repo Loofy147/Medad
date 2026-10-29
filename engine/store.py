@@ -135,10 +135,6 @@ class TransactionalStore(Protocol):
 
     def verify_audit_chain(self, actor: Actor) -> dict[str, Any]: ...
 
-    def verify_retained_artifact(
-        self, actor: Actor, artifact_id: str, byte_store: Any, *, reason: str,
-    ) -> dict[str, Any]: ...
-
     def close(self) -> None: ...
 
 
