@@ -2,7 +2,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from store import (
@@ -477,6 +477,64 @@ class SQLiteStoreTests(unittest.TestCase):
             event["action"] == "audit:verify_artifact" and event["outcome"] == "FAILED"
             for event in events
         ))
+
+
+    def test_task_store_enforces_transitions_and_dependency_graph_invariants(self):
+        base = datetime.now(timezone.utc) - timedelta(seconds=30)
+        first = task_payload("task-a")
+        first["created_at"] = base.isoformat()
+        first["updated_at"] = base.isoformat()
+        self.store.put_record(
+            self.analyst, "tasks", "task-a", first,
+            expected_revision=0, reason="Create root task",
+        )
+
+        invalid = dict(first)
+        invalid["status"] = "READY"
+        invalid["updated_at"] = (base + timedelta(seconds=1)).isoformat()
+        with self.assertRaisesRegex(ValueError, "status changes require explicit transition metadata"):
+            self.store.put_record(
+                self.analyst, "tasks", "task-a", invalid,
+                expected_revision=1, reason="Reject transition without metadata",
+            )
+
+        ready = dict(first)
+        ready["status"] = "READY"
+        transition_time = (base + timedelta(seconds=1)).isoformat()
+        ready["updated_at"] = transition_time
+        ready["transition"] = {
+            "from_status": "OPEN",
+            "to_status": "READY",
+            "reason": "Inputs and owner are ready",
+            "occurred_at": transition_time,
+        }
+        saved = self.store.put_record(
+            self.analyst, "tasks", "task-a", ready,
+            expected_revision=1, reason="Move root task to READY",
+        )
+        self.assertEqual(saved["revision"], 2)
+
+        dependent = task_payload("task-b")
+        dependent["created_at"] = (base + timedelta(seconds=2)).isoformat()
+        dependent["updated_at"] = dependent["created_at"]
+        dependent["dependencies"] = ["task-a"]
+        self.store.put_record(
+            self.analyst, "tasks", "task-b", dependent,
+            expected_revision=0, reason="Create dependent task",
+        )
+
+        cyclic = dict(ready)
+        cyclic["updated_at"] = (base + timedelta(seconds=3)).isoformat()
+        cyclic["dependencies"] = ["task-b"]
+        with self.assertRaisesRegex(ValueError, "dependency cycle detected"):
+            self.store.put_record(
+                self.analyst, "tasks", "task-a", cyclic,
+                expected_revision=2, reason="Reject cyclic task dependency",
+            )
+        unchanged = self.store.get_record(self.analyst, "tasks", "task-a")
+        self.assertEqual(unchanged["revision"], 2)
+        self.assertEqual(unchanged["payload"]["dependencies"], [])
+
 
 
 if __name__ == "__main__":
