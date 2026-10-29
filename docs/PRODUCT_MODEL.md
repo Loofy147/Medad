@@ -23,7 +23,7 @@ Other costs are explicitly separated: packaging per placed order, outbound couri
 
 ## Break-even
 
-Contribution before ads is revenue and collected delivery fees minus the modeled variable costs other than ads and fixed costs. Break-even ad spend is max(0, contribution_before_ads - other_fixed_costs). Break-even CAC is reported per placed order and per retained order when denominators exist. A zero-volume case returns null for undefined CAC rather than inventing a zero.
+Contribution before ads is revenue and collected delivery fees minus the modeled variable costs other than ads and fixed costs. Break-even ad spend is `contribution_before_ads - other_fixed_costs` only when this value is strictly positive. If contribution before ads cannot cover fixed costs, break-even spend/CAC are `null` and the product is not viable before ads; reporting zero would falsely imply that zero ad spend solves the loss. Break-even CAC is reported per placed order and per retained order only when break-even is possible and denominators exist. A zero-volume case returns `null` for undefined CAC rather than inventing a zero.
 
 ## Scenario analysis
 
@@ -39,6 +39,10 @@ Every external input should carry a source, observation date, geography, sample 
 - assumed: no adequate evidence yet.
 
 The data_quality score is a heuristic completeness/freshness indicator, not a probability of making a profit. Labels alone do not verify claims. Any high-risk input should identify source URL/document, date, location/region, currency and owner.
+
+## Traceability requirement
+
+Input values can be numerically plausible and still be untrustworthy. For a source-backed evidence grade, attach `evidence_sources` metadata to named evidence groups (for example `unit_cost`, `selling_price`, `delivery_rate`, `return_rate`, `ad_cost`) with an HTTPS source URL, ISO date `observed_on`, and evidence label (`observed`, `quoted`, `estimated`, or `assumed`). Numeric confidence without source URLs/date/label is capped at `LOW`. A source URL alone is not an independent verification; the linked evidence must support the specific input it is attached to. The score remains a heuristic completeness/freshness signal, never a probability of profit.
 
 ## Decision gates
 
