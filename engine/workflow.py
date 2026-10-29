@@ -184,6 +184,16 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
         {key: value for key, value in event.items() if key not in {"created_at", "observed_at"}}
         for event in instant_events
     ]
+    evidence_manifest = sorted(
+        [
+            {
+                "evidence_id": record["evidence_id"],
+                "content_hash": sha256(_canonical(record)).hexdigest(),
+            }
+            for record in evidence_records
+        ],
+        key=lambda item: item["evidence_id"],
+    )
     report_basis = {
         "decision_core": output_core,
         "economics": economics,
@@ -192,6 +202,7 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
         "opportunity": opportunity_result,
         "sensitivity": sensitivity,
         "instant_events": stable_events,
+        "evidence_manifest": evidence_manifest,
     }
     report_hash = sha256(_canonical(report_basis)).hexdigest()
 
@@ -229,6 +240,7 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
         "instant_events": instant_events,
         "provenance_summary": {
             "evidence_record_count": len(evidence_records),
+            "evidence_manifest": evidence_manifest,
             "claim_count": len(claims),
             "gate_count": gate_result["gate_count"],
             "source_urls": sorted({
@@ -245,3 +257,130 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
             "Sensitivity outputs are conditional stress cases, not probabilities or calibrated forecasts.",
         ],
     }
+
+
+def validate_decision_run_report(report: Any) -> list[str]:
+    """Validate packet structure and recompute its output hash before persistence/replay.
+
+    A valid hash proves packet consistency, not that its source evidence is true.
+    """
+    if not isinstance(report, dict):
+        return ["report must be an object"]
+    errors: list[str] = []
+    if report.get("schema_version") != SCHEMA_VERSION:
+        errors.append(f"schema_version must be {SCHEMA_VERSION}")
+    manifest = report.get("run_manifest")
+    decision = report.get("decision")
+    provenance = report.get("provenance_summary")
+    if not isinstance(manifest, dict):
+        return errors + ["run_manifest must be an object"]
+    if not isinstance(decision, dict):
+        return errors + ["decision must be an object"]
+    if not isinstance(provenance, dict):
+        return errors + ["provenance_summary must be an object"]
+
+    for field in ("run_id", "case_id", "code_revision", "input_hash", "report_hash", "mode"):
+        if not isinstance(manifest.get(field), str) or not manifest[field].strip():
+            errors.append(f"run_manifest.{field} is required")
+    if manifest.get("mode") != "ANALYSIS_ONLY_NO_EXTERNAL_SIDE_EFFECTS":
+        errors.append("run_manifest.mode must be analysis-only")
+    for field in ("input_hash", "report_hash"):
+        digest = manifest.get(field)
+        if isinstance(digest, str) and (
+            len(digest) != 64
+            or any(char not in "0123456789abcdef" for char in digest.lower())
+        ):
+            errors.append(f"run_manifest.{field} must be a 64-character hexadecimal digest")
+    if decision.get("authorization_granted") is not False:
+        errors.append("decision.authorization_granted must be false")
+    if not isinstance(decision.get("stage"), str) or not decision["stage"]:
+        errors.append("decision.stage is required")
+    if not isinstance(decision.get("economics_status"), str) or not decision["economics_status"]:
+        errors.append("decision.economics_status is required")
+    if not isinstance(decision.get("gate_eligible"), bool):
+        errors.append("decision.gate_eligible must be boolean")
+    if not isinstance(decision.get("critical_claim_blockers"), list):
+        errors.append("decision.critical_claim_blockers must be an array")
+
+    evidence_manifest = provenance.get("evidence_manifest")
+    if not isinstance(evidence_manifest, list):
+        errors.append("provenance_summary.evidence_manifest must be an array")
+        evidence_manifest = []
+    seen_ids: set[str] = set()
+    for index, item in enumerate(evidence_manifest):
+        if not isinstance(item, dict):
+            errors.append(f"evidence_manifest[{index}] must be an object")
+            continue
+        evidence_id = item.get("evidence_id")
+        digest = item.get("content_hash")
+        if not isinstance(evidence_id, str) or not evidence_id.strip():
+            errors.append(f"evidence_manifest[{index}].evidence_id is required")
+        elif evidence_id in seen_ids:
+            errors.append(f"evidence_manifest contains duplicate evidence_id {evidence_id!r}")
+        else:
+            seen_ids.add(evidence_id)
+        if not isinstance(digest, str) or len(digest) != 64 or any(
+            char not in "0123456789abcdef" for char in digest.lower()
+        ):
+            errors.append(f"evidence_manifest[{index}].content_hash must be a SHA-256 digest")
+
+    count = provenance.get("evidence_record_count")
+    if isinstance(count, bool) or not isinstance(count, int) or count != len(evidence_manifest):
+        errors.append("provenance_summary.evidence_record_count must match evidence_manifest length")
+
+    required_outputs = ("economics", "claims", "gates", "instant_events")
+    for field in required_outputs:
+        if field not in report:
+            errors.append(f"{field} is required")
+    if not isinstance(report.get("claims"), list):
+        errors.append("claims must be an array")
+    if not isinstance(report.get("instant_events"), list):
+        errors.append("instant_events must be an array")
+    gates = report.get("gates")
+    if not isinstance(gates, dict) or not isinstance(gates.get("eligible_for_next_stage"), bool):
+        errors.append("gates.eligible_for_next_stage must be boolean")
+    opportunity = report.get("opportunity")
+    if opportunity is not None and not isinstance(opportunity, dict):
+        errors.append("opportunity must be an object or null")
+
+    if errors:
+        return errors
+
+    for field in ("run_id", "case_id"):
+        if not isinstance(manifest.get(field), str) or not manifest[field].strip():
+            return errors
+    opportunity = report.get("opportunity")
+    output_core = {
+        "run_id": manifest["run_id"],
+        "case_id": manifest["case_id"],
+        "input_hash": manifest["input_hash"],
+        "stage": decision["stage"],
+        "economics_decision": decision["economics_status"],
+        "gate_eligible": gates["eligible_for_next_stage"],
+        "critical_claim_blockers": decision["critical_claim_blockers"],
+        "candidate_stage": opportunity["stage"] if opportunity else None,
+    }
+    stable_events = [
+        {key: value for key, value in event.items() if key not in {"created_at", "observed_at"}}
+        for event in report["instant_events"]
+        if isinstance(event, dict)
+    ]
+    if len(stable_events) != len(report["instant_events"]):
+        return ["every instant event must be an object"]
+    report_basis = {
+        "decision_core": output_core,
+        "economics": report["economics"],
+        "claims": report["claims"],
+        "gates": report["gates"],
+        "opportunity": report.get("opportunity"),
+        "sensitivity": report.get("sensitivity"),
+        "instant_events": stable_events,
+        "evidence_manifest": evidence_manifest,
+    }
+    try:
+        computed = sha256(_canonical(report_basis)).hexdigest()
+    except (TypeError, ValueError) as exc:
+        return [f"report contains non-canonical JSON values: {exc}"]
+    if computed != manifest["report_hash"]:
+        errors.append("run_manifest.report_hash does not match report content")
+    return errors
