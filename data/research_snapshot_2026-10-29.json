@@ -138,6 +138,93 @@
         "Transactions include non-retail and public-service payments",
         "Not a source for conversion, CAC, delivery rate, return rate, or willingness to buy a candidate product"
       ]
+    },
+    {
+      "id": "hnaya-wholesale-discovery",
+      "publisher": "Hnaya Source",
+      "title": "Algerian wholesale discovery search by image/name",
+      "url": "https://hnaya.me/",
+      "source_type": "wholesale_discovery_platform",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "publisher_claims": "Search engine for wholesale offers publicly posted on Algerian Telegram channels; homepage states more than 330,000 products and 500+ wholesalers with daily updates.",
+        "free_access": "Browse listings/prices; seller contact information is in paid plans.",
+        "plans_dzd": {
+          "starter_monthly": 1490,
+          "pro_monthly": 2900
+        }
+      },
+      "evidence_limitations": [
+        "Platform is a discovery index, not the seller, warehouse, courier, or guarantor",
+        "Counts and daily-refresh statements are platform claims, not independently audited",
+        "A surfaced offer is not a verified quote until SKU, quantity tier, date, conditions, and seller identity are captured",
+        "Seller-contact plans have a fee; no subscription or contact has been purchased or obtained"
+      ]
+    },
+    {
+      "id": "hnaya-privacy-2026-10-27",
+      "publisher": "Hnaya Source legal/privacy",
+      "title": "Privacy and legal disclosure",
+      "url": "https://hnaya.me/legal",
+      "source_type": "supplier_platform_due_diligence",
+      "publication_date": "2026-10-27",
+      "observed_facts": {
+        "context": "The platform disclosure states account data may include Google account name/email/ID, search terms/counts, IP address and a device-identifying cookie; it says product search photos are used for matching and not retained."
+      },
+      "evidence_limitations": [
+        "Self-reported policy, not an independent privacy audit",
+        "Use only product photos without personal/customer details when searching",
+        "Review terms and privacy before account connection or paid subscription"
+      ]
+    },
+    {
+      "id": "kabagros-wholesale-lots",
+      "publisher": "Kabagros",
+      "title": "Marketplace for professional wholesale lots",
+      "url": "https://kabagros.com/?prix_fixe=1",
+      "source_type": "wholesale_discovery_platform",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "displayed_example": "Plastic storage boxes in Algiers around 2,890–3,490 DZD/pc with displayed lot size 50 pcs, posted approximately 75 days earlier in reviewed results.",
+        "context": "The observed offers are leads for sourcing research, not an equivalent supplier quote for the bathroom basket or any shortlisted candidate."
+      },
+      "evidence_limitations": [
+        "The displayed storage item is not proven equivalent to the candidate basket",
+        "Example listing was roughly 75 days old at capture; availability and price may change",
+        "Platform legal terms say it is only a connection intermediary and does not guarantee goods, member solvency, payment, or transportation",
+        "Kabagros legal notice had fields marked to be completed when reviewed; verify trader identity and documents directly"
+      ]
+    },
+    {
+      "id": "kabagros-legal-2026-07",
+      "publisher": "Kabagros legal notice and terms",
+      "title": "Platform role and limitations",
+      "url": "https://kabagros.com/mentions-legales",
+      "source_type": "supplier_platform_due_diligence",
+      "publication_date": "2026-07",
+      "observed_facts": {
+        "context": "Kabagros describes itself as an intermediary; the transaction forms directly between members. The legal notice leaves company registration and representative details as fields to be completed. Its terms say a verified badge only indicates that activity documentation was presented, not quality or solvency."
+      },
+      "evidence_limitations": [
+        "Platform disclosures are not independent checks of an individual lot",
+        "Seller, product, authenticity, stock, quantity, and terms must be verified directly"
+      ]
+    },
+    {
+      "id": "itidjar-wholesale-marketplace",
+      "publisher": "Itidjar",
+      "title": "Algerian wholesale marketplace",
+      "url": "https://itidjar.com/",
+      "source_type": "wholesale_discovery_platform",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "platform_claims": "Homepage claims a wholesale marketplace with dozens of listed products, 69 wilayas covered, over 2,000 successful transactions, payment options, and delivery coverage."
+      },
+      "evidence_limitations": [
+        "These are publisher claims and have not been independently audited",
+        "Do not infer that the platform claims imply any product is in stock, profitable, or available on terms appropriate to Medad",
+        "Check seller legal identity, current availability, return terms, and fees before transacting"
+      ]
     }
   ],
   "candidates": [
@@ -254,7 +341,41 @@
     "Seller-specific outbound, failed-delivery, return, and cash-remittance courier terms by wilaya",
     "Creative test metrics and advertising cost per placed order",
     "Observed order-confirmation, delivery, refusal, return, and retained-order cohort metrics",
-    "Explicit cash budget, stock cap, stop-loss threshold, and profit-sharing terms"
+    "Explicit cash budget, stock cap, stop-loss threshold, and profit-sharing terms",
+    "Current matching supplier listings, quote screenshots/documents, seller identity checks, and exact SKU/quantity terms from Hnaya Source/Kabagros/Itidjar or direct wholesalers; discovery platforms are not themselves supplier quotes."
   ],
-  "decision": "No product in this snapshot is investment-ready. This is a discovery shortlist only; profitability cannot be ranked without verified procurement/logistics costs and test/cohort data."
+  "decision": "No product in this snapshot is investment-ready. Four retail candidates remain RESEARCH_ONLY. Three wholesale discovery platforms are leads only; no subscription, supplier contact, product quote, or seller verification has occurred.",
+  "sourcing_leads": [
+    {
+      "id": "lead-hnaya",
+      "platform_source_id": "hnaya-wholesale-discovery",
+      "due_diligence_source_ids": [
+        "hnaya-privacy-2026-10-27"
+      ],
+      "purpose": "Find current wholesale listings by exact product name/photo; record source link, posting date, SKU, seller, quantity tier and delivery terms.",
+      "status": "DISCOVERY_LEAD_ONLY",
+      "subscription_purchased": false,
+      "quote_verified": false
+    },
+    {
+      "id": "lead-kabagros",
+      "platform_source_id": "kabagros-wholesale-lots",
+      "due_diligence_source_ids": [
+        "kabagros-legal-2026-07"
+      ],
+      "purpose": "Search public professional lots and request direct written terms; use only as lead unless SKU and seller terms are verified.",
+      "status": "DISCOVERY_LEAD_ONLY",
+      "subscription_purchased": false,
+      "quote_verified": false
+    },
+    {
+      "id": "lead-itidjar",
+      "platform_source_id": "itidjar-wholesale-marketplace",
+      "due_diligence_source_ids": [],
+      "purpose": "Secondary wholesale-directory lead; verify any claims and exact listing/seller before treating as an offer.",
+      "status": "DISCOVERY_LEAD_ONLY",
+      "subscription_purchased": false,
+      "quote_verified": false
+    }
+  ]
 }
