@@ -1,0 +1,244 @@
+{
+  "snapshot_id": "medad-market-snapshot-2026-10-29-v1",
+  "captured_at": "2026-10-29",
+  "market": "Algeria",
+  "currency": "DZD",
+  "method": "Manual public-page review. Asking prices and listing views are observational signals only; they are not transaction prices, order counts, supplier quotes, or proof of demand.",
+  "sources": [
+    {
+      "id": "ouedkniss-car-seat-organizer",
+      "publisher": "Ouedkniss marketplace listing",
+      "title": "Maxwell Drive Vault car-seat organizer",
+      "url": "https://www.ouedkniss.com/autres-accessoires-maxwell-remplisseur-de-siege-voiture-avec-porte-charge-universel-organisateur-dely-brahim-hydra-kouba-alger-algerie-d47178119",
+      "source_type": "marketplace_listing",
+      "listing_date": "2026-09-25",
+      "observed_facts": {
+        "asking_price_dzd": 4500,
+        "listing_views_at_capture": 1514,
+        "seller_location": "Dely Ibrahim, Algiers"
+      },
+      "evidence_limitations": [
+        "Asking price, not confirmed transaction price",
+        "Listing views are not purchases",
+        "Availability and price may change",
+        "No wholesale or landed cost disclosed"
+      ]
+    },
+    {
+      "id": "ouedkniss-car-phone-mounts",
+      "publisher": "Ouedkniss marketplace search results",
+      "title": "Car phone holders — category search snapshot",
+      "url": "https://www.ouedkniss.com/s/?keywords=support-voiture&lang=fr",
+      "source_type": "marketplace_search_snapshot",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "example_asking_prices_dzd": [
+          650,
+          800,
+          900,
+          1200,
+          1500,
+          2400,
+          2900,
+          5500,
+          6000
+        ],
+        "interpretation": "Observed offers include different models/brands; values are not an apples-to-apples comparable range."
+      },
+      "evidence_limitations": [
+        "Several competing offers surfaced",
+        "Different models and brands",
+        "Search-result capture can change",
+        "No order/sales data",
+        "No wholesale or landed cost disclosed"
+      ]
+    },
+    {
+      "id": "ouedkniss-bathroom-basket",
+      "publisher": "Ouedkniss marketplace search results",
+      "title": "Woven bathroom storage basket, four compartments",
+      "url": "https://www.ouedkniss.com/maison/2?keywords=rangements&lang=fr",
+      "source_type": "marketplace_search_snapshot",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "example_asking_prices_dzd": [
+          1900,
+          2500
+        ],
+        "displayed_listing_age": "approximately 7–8 months in the reviewed results"
+      },
+      "evidence_limitations": [
+        "Price observations are stale",
+        "Listings may not be comparable",
+        "No sales/demand data",
+        "No wholesale or landed cost disclosed"
+      ]
+    },
+    {
+      "id": "ouedkniss-screen-cleaning-kit",
+      "publisher": "Ouedkniss marketplace search results",
+      "title": "OPULA KCL-1027 screen-cleaning spray and brush kit",
+      "url": "https://www.ouedkniss.com/s/?keywords=brosse-nettoyage&lang=fr",
+      "source_type": "marketplace_search_snapshot",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "asking_price_dzd": 800,
+        "displayed_listing_age": "approximately one month in the reviewed results"
+      },
+      "evidence_limitations": [
+        "Single observed asking price",
+        "Low unit price may not absorb acquisition and COD fulfillment costs",
+        "No bundle conversion evidence",
+        "No wholesale or landed cost disclosed"
+      ]
+    },
+    {
+      "id": "unctad-algeria-etrade",
+      "publisher": "UN Trade and Development (UNCTAD)",
+      "title": "Algeria: eTrade Readiness Assessment",
+      "url": "https://unctad.org/publication/algeria-etrade-readiness-assessment",
+      "source_type": "official_market_context",
+      "observed_facts": {
+        "context": "The assessment describes Algeria's e-commerce ecosystem and historically high use of cash on delivery. It is market context, not product-level demand evidence."
+      },
+      "evidence_limitations": [
+        "Not a source for demand for any individual SKU",
+        "Some metrics refer to prior reporting periods",
+        "Do not use as current category conversion or return-rate data"
+      ]
+    },
+    {
+      "id": "yalidine-agencies",
+      "publisher": "Yalidine official website",
+      "title": "Official agency directory, including Blida locations",
+      "url": "https://www.yalidine.com/nos-agences/",
+      "source_type": "official_logistics_coverage",
+      "observed_at": "2026-10-29",
+      "observed_facts": {
+        "context": "Agency locations can be checked; the reviewed page is not a price quote and does not establish actual outbound/return charges for a specific seller contract."
+      },
+      "evidence_limitations": [
+        "No seller-specific quote",
+        "No confirmed return/refusal fee schedule",
+        "No service-level commitment or cash-remittance timing verified"
+      ]
+    }
+  ],
+  "candidates": [
+    {
+      "id": "car-seat-gap-organizer",
+      "name_ar": "منظّم الفجوة بين مقعد السيارة والكونسول",
+      "category": "car_accessories",
+      "status": "RESEARCH_ONLY",
+      "source_ids": [
+        "ouedkniss-car-seat-organizer"
+      ],
+      "market_signal": "One listing with an asking price and view count; views do not prove sales.",
+      "market_price_observed_dzd": {
+        "low": 4500,
+        "high": 4500,
+        "basis": "single listing only"
+      },
+      "product_spec_verified": false,
+      "supplier_quotes_count": 0,
+      "landed_cost_verified": false,
+      "courier_quote_verified": false,
+      "pilot_campaign_evidence": false,
+      "delivered_order_cohort_evidence": false,
+      "repeatable_cohorts": 0,
+      "notes": [
+        "Investigate wholesale/supplier price and product fit",
+        "Inspect a sample before any stock commitment",
+        "No profitability conclusion is available"
+      ]
+    },
+    {
+      "id": "car-phone-holder",
+      "name_ar": "حامل هاتف للسيارة",
+      "category": "car_accessories",
+      "status": "RESEARCH_ONLY",
+      "source_ids": [
+        "ouedkniss-car-phone-mounts"
+      ],
+      "market_price_observed_dzd": {
+        "low": 650,
+        "high": 6000,
+        "basis": "heterogeneous category offers, not like-for-like"
+      },
+      "product_spec_verified": false,
+      "supplier_quotes_count": 0,
+      "landed_cost_verified": false,
+      "courier_quote_verified": false,
+      "pilot_campaign_evidence": false,
+      "delivered_order_cohort_evidence": false,
+      "repeatable_cohorts": 0,
+      "notes": [
+        "Category shows multiple competing offers",
+        "A generic holder may be commoditized",
+        "Only proceed with a distinct validated specification or bundle"
+      ]
+    },
+    {
+      "id": "bathroom-storage-basket",
+      "name_ar": "سلة تنظيم للحمام بأربعة أقسام",
+      "category": "home_organization",
+      "status": "RESEARCH_ONLY",
+      "source_ids": [
+        "ouedkniss-bathroom-basket"
+      ],
+      "market_price_observed_dzd": {
+        "low": 1900,
+        "high": 2500,
+        "basis": "older marketplace listings"
+      },
+      "product_spec_verified": false,
+      "supplier_quotes_count": 0,
+      "landed_cost_verified": false,
+      "courier_quote_verified": false,
+      "pilot_campaign_evidence": false,
+      "delivered_order_cohort_evidence": false,
+      "repeatable_cohorts": 0,
+      "notes": [
+        "Refresh asking prices; currentness is weak",
+        "Check dimensions and packaging volume",
+        "No profitability conclusion is available"
+      ]
+    },
+    {
+      "id": "screen-cleaning-kit",
+      "name_ar": "عدة تنظيف الشاشة مع رذاذ وفرشاة",
+      "category": "small_accessories",
+      "status": "RESEARCH_ONLY",
+      "source_ids": [
+        "ouedkniss-screen-cleaning-kit"
+      ],
+      "market_price_observed_dzd": {
+        "low": 800,
+        "high": 800,
+        "basis": "single observed asking price"
+      },
+      "product_spec_verified": false,
+      "supplier_quotes_count": 0,
+      "landed_cost_verified": false,
+      "courier_quote_verified": false,
+      "pilot_campaign_evidence": false,
+      "delivered_order_cohort_evidence": false,
+      "repeatable_cohorts": 0,
+      "notes": [
+        "Test bundle economics rather than single-unit assumptions",
+        "Verify quality and compatibility",
+        "No profitability conclusion is available"
+      ]
+    }
+  ],
+  "global_missing_evidence": [
+    "Two comparable supplier/wholesale quotes per shortlisted product",
+    "Sample inspection and product specification",
+    "Landed cost including domestic procurement, packaging, and loss allowance",
+    "Seller-specific outbound, failed-delivery, return, and cash-remittance courier terms by wilaya",
+    "Creative test metrics and advertising cost per placed order",
+    "Observed order-confirmation, delivery, refusal, return, and retained-order cohort metrics",
+    "Explicit cash budget, stock cap, stop-loss threshold, and profit-sharing terms"
+  ],
+  "decision": "No product in this snapshot is investment-ready. This is a discovery shortlist only; profitability cannot be ranked without verified procurement/logistics costs and test/cohort data."
+}
