@@ -194,8 +194,50 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
         ],
         key=lambda item: item["evidence_id"],
     )
+    decision_output = {
+        "stage": stage,
+        "economics_status": economics_status,
+        "gate_eligible": gate_result["eligible_for_next_stage"],
+        "critical_claim_blockers": critical_claim_blockers,
+        "next_action": (
+            "Resolve the listed blocking condition and rerun from a new, source-backed snapshot."
+            if stage.startswith("BLOCKED_")
+            else "A bounded test may be proposed; a separate authorized decision is still required."
+        ),
+        "authorization_granted": False,
+    }
+    provenance_summary = {
+        "evidence_record_count": len(evidence_records),
+        "evidence_manifest": evidence_manifest,
+        "claim_count": len(claims),
+        "gate_count": gate_result["gate_count"],
+        "source_urls": sorted({
+            record["source_ref"]
+            for record in evidence_records
+            if record.get("source_kind") == "url" and isinstance(record.get("source_ref"), str)
+        }),
+    }
+    limitations = [
+        "The run is a local analysis packet, not a transaction or authorization.",
+        "A report hash establishes packet identity, not truth or tamper-proof storage.",
+        "Evidence artifacts must be retained separately; an artifact reference is not independent authenticity verification.",
+        "Instant events are generated from this one evaluated snapshot; no live source updates are subscribed.",
+        "Sensitivity outputs are conditional stress cases, not probabilities or calibrated forecasts.",
+    ]
+    manifest_identity = {
+        "run_id": run_id,
+        "case_id": case_id,
+        "observed_at": observed_dt.isoformat(),
+        "code_revision": code_revision,
+        "run_note": run_note,
+        "runtime": "python-stdlib-local",
+        "mode": "ANALYSIS_ONLY_NO_EXTERNAL_SIDE_EFFECTS",
+        "input_hash": input_hash,
+    }
     report_basis = {
         "decision_core": output_core,
+        "manifest_identity": manifest_identity,
+        "decision_details": decision_output,
         "economics": economics,
         "claims": claim_results,
         "gates": gate_result,
@@ -203,6 +245,8 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
         "sensitivity": sensitivity,
         "instant_events": stable_events,
         "evidence_manifest": evidence_manifest,
+        "provenance_summary": provenance_summary,
+        "limitations": limitations,
     }
     report_hash = sha256(_canonical(report_basis)).hexdigest()
 
@@ -220,42 +264,15 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
             "input_hash": input_hash,
             "report_hash": report_hash,
         },
-        "decision": {
-            "stage": stage,
-            "economics_status": economics_status,
-            "gate_eligible": gate_result["eligible_for_next_stage"],
-            "critical_claim_blockers": critical_claim_blockers,
-            "next_action": (
-                "Resolve the listed blocking condition and rerun from a new, source-backed snapshot."
-                if stage.startswith("BLOCKED_")
-                else "A bounded test may be proposed; a separate authorized decision is still required."
-            ),
-            "authorization_granted": False,
-        },
+        "decision": decision_output,
         "economics": economics,
         "claims": claim_results,
         "gates": gate_result,
         "opportunity": opportunity_result,
         "sensitivity": sensitivity,
         "instant_events": instant_events,
-        "provenance_summary": {
-            "evidence_record_count": len(evidence_records),
-            "evidence_manifest": evidence_manifest,
-            "claim_count": len(claims),
-            "gate_count": gate_result["gate_count"],
-            "source_urls": sorted({
-                record["source_ref"]
-                for record in evidence_records
-                if record.get("source_kind") == "url" and isinstance(record.get("source_ref"), str)
-            }),
-        },
-        "limitations": [
-            "The run is a local analysis packet, not a transaction or authorization.",
-            "A report hash establishes packet identity, not truth or tamper-proof storage.",
-            "Evidence artifacts must be retained separately; an artifact reference is not independent authenticity verification.",
-            "Instant events are generated from this one evaluated snapshot; no live source updates are subscribed.",
-            "Sensitivity outputs are conditional stress cases, not probabilities or calibrated forecasts.",
-        ],
+        "provenance_summary": provenance_summary,
+        "limitations": limitations,
     }
 
 
@@ -367,8 +384,20 @@ def validate_decision_run_report(report: Any) -> list[str]:
     ]
     if len(stable_events) != len(report["instant_events"]):
         return ["every instant event must be an object"]
+    manifest_identity = {
+        "run_id": manifest["run_id"],
+        "case_id": manifest["case_id"],
+        "observed_at": manifest.get("observed_at"),
+        "code_revision": manifest.get("code_revision"),
+        "run_note": manifest.get("run_note", ""),
+        "runtime": manifest.get("runtime"),
+        "mode": manifest.get("mode"),
+        "input_hash": manifest["input_hash"],
+    }
     report_basis = {
         "decision_core": output_core,
+        "manifest_identity": manifest_identity,
+        "decision_details": decision,
         "economics": report["economics"],
         "claims": report["claims"],
         "gates": report["gates"],
@@ -376,6 +405,8 @@ def validate_decision_run_report(report: Any) -> list[str]:
         "sensitivity": report.get("sensitivity"),
         "instant_events": stable_events,
         "evidence_manifest": evidence_manifest,
+        "provenance_summary": provenance,
+        "limitations": report.get("limitations"),
     }
     try:
         computed = sha256(_canonical(report_basis)).hexdigest()
