@@ -69,8 +69,8 @@ def _validate(x: Inputs) -> None:
             raise ValueError(f"evidence_sources[{source!r}] must be an object")
         url = details.get("url")
         observed_on = details.get("observed_on")
-        if not isinstance(url, str) or not url.startswith(("https://", "http://")):
-            raise ValueError(f"evidence_sources[{source!r}].url must be an HTTP(S) URL")
+        if not isinstance(url, str) or not url.startswith("https://"):
+            raise ValueError(f"evidence_sources[{source!r}].url must be an HTTPS URL")
         if not isinstance(observed_on, str):
             raise ValueError(f"evidence_sources[{source!r}].observed_on must be YYYY-MM-DD")
         try:
@@ -79,6 +79,9 @@ def _validate(x: Inputs) -> None:
             raise ValueError(f"evidence_sources[{source!r}].observed_on must be YYYY-MM-DD") from exc
         if details.get("label") not in VALID_EVIDENCE:
             raise ValueError(f"evidence_sources[{source!r}].label must be one of {sorted(VALID_EVIDENCE)}")
+        declared_label = (x.evidence or {}).get(source)
+        if declared_label is not None and declared_label != details.get("label"):
+            raise ValueError(f"evidence label mismatch for {source!r}: declared input label and source label must match")
 
 
 def assess_data_quality(x: Inputs) -> dict[str, Any]:
