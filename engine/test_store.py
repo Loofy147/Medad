@@ -49,6 +49,31 @@ def evidence_payload(
     return payload
 
 
+
+
+def task_payload(task_id: str) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        "schema_version": "medad.task.v1",
+        "task_id": task_id,
+        "title": f"Task {task_id}",
+        "description": "",
+        "status": "OPEN",
+        "priority": "NORMAL",
+        "owner_id": None,
+        "dependencies": [],
+        "evidence_refs": [],
+        "artifact_refs": [],
+        "created_at": now,
+        "updated_at": now,
+        "due_at": None,
+        "blocked_reason": None,
+        "completion_note": None,
+        "completed_at": None,
+        "cancellation_reason": None,
+        "transition": None,
+    }
+
 TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "docs" / "examples" / "decision-run.template.json"
 
 
