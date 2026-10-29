@@ -31,19 +31,24 @@ def event_fingerprint(event: dict[str, Any]) -> str:
 
 def validate_event(event: dict[str, Any]) -> list[str]:
     errors: list[str] = []
-    for field in ("event_id", "idempotency_key", "event_type", "priority", "subject_id", "observed_at", "summary", "recommended_action", "state", "created_at"):
+    for field in ("event_id", "idempotency_key", "event_type", "priority", "subject_id", "observed_at", "summary", "recommended_action", "trigger_rule", "state", "created_at"):
         if not isinstance(event.get(field), str) or not event[field].strip():
             errors.append(f"{field} is required")
     if not isinstance(event.get("priority"), str) or event["priority"] not in PRIORITIES:
         errors.append(f"priority must be one of {sorted(PRIORITIES)}")
     if not isinstance(event.get("state"), str) or event["state"] not in EVENT_STATES:
         errors.append(f"state must be one of {sorted(EVENT_STATES)}")
-    for field in ("source_refs", "evidence_refs", "tags"):
+    for field in ("source_refs", "evidence_refs", "tags", "invariants", "recovery_actions"):
         value = event.get(field, [])
         if not isinstance(value, list):
             errors.append(f"{field} must be an array")
         elif any(not isinstance(item, str) or not item.strip() for item in value):
             errors.append(f"every item in {field} must be a non-empty string")
+    for field in ("context", "observations", "state_delta", "propagation"):
+        if not isinstance(event.get(field), dict):
+            errors.append(f"{field} must be an object")
+    if isinstance(event.get("state_delta"), dict) and event["state_delta"].get("to") != event.get("state"):
+        errors.append("state_delta.to must match the current event state")
     for field in ("observed_at", "created_at"):
         value = event.get(field)
         if isinstance(value, str):
@@ -78,6 +83,14 @@ def _event(
         "observed_at": observed_at,
         "summary": summary,
         "recommended_action": recommended_action,
+        "action_kind": "RECOMMENDATION_ONLY",
+        "trigger_rule": event_type,
+        "context": {"subject_id": subject_id, "snapshot_hash": snapshot_hash, "mode": "LOCAL_ONLY"},
+        "observations": {},
+        "state_delta": {"from": None, "to": "OPEN"},
+        "invariants": ["idempotent-key", "append-only-history", "no-automatic-financial-commitment"],
+        "recovery_actions": ["ACKNOWLEDGED", "RESOLVED", "DISMISSED", "OPEN"],
+        "propagation": {"mode": "LOCAL_ONLY", "downstream_refs": []},
         "state": "OPEN",
         "source_refs": source_refs or [],
         "evidence_refs": evidence_refs or [],
@@ -164,7 +177,37 @@ def generate_instant_events(economics: dict[str, Any], *, subject_id: str, obser
             recommended_action="Keep the evidence and next review date current; this is not proof of profitability or readiness to scale.",
             snapshot_hash=snapshot_hash, tags=["review"],
         ))
+    observed_values = {
+        "decision_status": economics["decision"].get("status"),
+        "data_quality_grade": quality.get("grade"),
+        "data_quality_score": quality.get("score"),
+        "provenance_coverage": quality.get("provenance_coverage"),
+        "sample_size": quality.get("sample_size"),
+        "data_age_days": quality.get("data_age_days"),
+        "modeled_profit_dzd": costs.get("estimated_profit"),
+        "contribution_before_ads_dzd": costs.get("contribution_before_ads"),
+        "break_even_possible_before_ads": costs.get("break_even_possible_before_ads"),
+        "delivery_rate": funnel.get("delivery_rate"),
+        "customer_return_rate": funnel.get("customer_return_rate"),
+    }
+    trigger_rules = {
+        "EVIDENCE_GAP": "decision_status in {UNVERIFIED_ECONOMICS, HIGH_OPERATIONAL_RISK} or data_quality_grade in {UNKNOWN, LOW}",
+        "MODELLED_LOSS": "modeled_profit_dzd < 0",
+        "NO_AD_BREAK_EVEN": "break_even_possible_before_ads is false",
+        "DELIVERY_RATE_RISK": "delivery_rate < 0.55",
+        "RETURN_RATE_RISK": "customer_return_rate > 0.15",
+        "SNAPSHOT_REVIEWED": "no configured rule fired",
+    }
+    source_refs = sorted({detail.get("url") for detail in (quality.get("evidence_sources") or {}).values()
+                          if isinstance(detail, dict) and isinstance(detail.get("url"), str) and detail["url"].startswith("https://")})
+    evidence_refs = sorted((quality.get("evidence_sources") or {}).keys())
     for event in events:
+        event["context"] = {"subject_id": subject_id, "snapshot_hash": snapshot_hash, "mode": "LOCAL_ECONOMICS_SNAPSHOT"}
+        event["trigger_rule"] = trigger_rules.get(event["event_type"], event["event_type"])
+        event["observations"] = {key: value for key, value in observed_values.items() if value is not None}
+        event["source_refs"] = source_refs
+        event["evidence_refs"] = evidence_refs
+        event["state_delta"] = {"from": None, "to": event["state"]}
         errors = validate_event(event)
         if errors:
             raise ValueError(f"Generated event violates its contract: {errors}")
@@ -268,5 +311,11 @@ class JsonlEventJournal:
         transition["actor"] = actor
         transition["new_state"] = new_state
         transition["state"] = new_state
+        transition["state_delta"] = {"from": current["state"], "to": new_state}
+        transition["context"] = {"subject_id": current["subject_id"], "snapshot_hash": current.get("snapshot_hash"), "mode": "LOCAL_EVENT_TRANSITION", "previous_event_id": event_id}
+        transition["observations"] = {"actor": actor, "reason": reason}
+        transition["invariants"] = ["append-only-history", "actor-and-reason-required"]
+        transition["recovery_actions"] = ["OPEN", "ACKNOWLEDGED", "RESOLVED", "DISMISSED"]
+        transition["propagation"] = {"mode": "LOCAL_ONLY", "downstream_refs": [f"event://{event_id}"]}
         appended = self.append(transition)
         return {"transition": appended["event"], "inserted": appended["inserted"], "prior_state": current["state"], "new_state": new_state}
