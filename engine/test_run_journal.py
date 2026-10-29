@@ -58,7 +58,7 @@ class DecisionRunJournalTests(unittest.TestCase):
 
     def test_journal_rejects_report_tampering_before_append_even_with_valid_json(self):
         report = sample_report("tampered-before-append")
-        report["economics"]["profit"]["net_profit"] = 123456789.0
+        report["economics"]["economics_dzd"]["estimated_profit"] = 123456789.0
         with tempfile.TemporaryDirectory() as directory:
             journal = DecisionRunJournal(Path(directory) / "runs.jsonl")
             with self.assertRaisesRegex(ValueError, "report_hash"):
