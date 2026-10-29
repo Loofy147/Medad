@@ -57,6 +57,24 @@ The snapshot records five places to search for supplier leads or request wholesa
 - [SVC Corporation's public Ouedkniss listing](https://www.ouedkniss.com/store/9348/svc-corporation/annonce/33191438) states that wholesale prices can be requested by phone. No contact was made and no quote was received; the listing returned 503 when re-opened.
 - [Shoppicom](https://shoppicom.com/about-us-ar/?sl=fr) is a wholesale-accessory directory lead only. Its site summary states phone accessories and delivery coverage, but the page returned 403 when re-opened and no seller/SKU terms were verified.
 
+### Ready-to-send request for a comparable wholesale quote
+
+Use this only as a draft to send manually after you decide to contact the seller. The app's copy button does not contact anyone or place an order.
+
+**Arabic**
+
+> السلام عليكم، نرغب في التحقق من توفر حوامل الهاتف للسيارة LDNIO MG03 وMG08 وطلب عرض سعر جملة منفصل لكل مرجع.
+>
+> يرجى ذكر: السعر للوحدة عند 10 و20 و50 قطعة، الحد الأدنى للطلب، الكمية المتوفرة وتاريخ تحديث المخزون، رقم المرجع والصور الفعلية، الفاتورة ووثائق النشاط، إمكانية فحص عينة، معالجة العيوب والاستبدال، تكلفة التوصيل إلى البليدة، رسوم الرفض أو الإرجاع عند الدفع عند الاستلام إن وجدت، شروط الدفع، ومدة صلاحية العرض. يرجى توضيح ما إذا كانت الأسعار تشمل التوصيل أو أي رسوم.
+>
+> لا يمثل هذا طلب شراء؛ سنراجع العرض والعينة والشروط قبل اتخاذ قرار.
+
+**French**
+
+> Bonjour, merci de confirmer la disponibilité des références LDNIO MG03 et MG08 et de nous envoyer un devis grossiste séparé pour chaque modèle. Merci d’indiquer les prix unitaires pour 10/20/50 pièces, la quantité minimale, le stock et sa date de mise à jour, la référence exacte et des photos réelles, la facture et les documents de l’activité, la possibilité d’un échantillon, la politique de défaut/échange, la livraison à Blida, les frais de refus/retour COD, les conditions de paiement et la validité du devis. Précisez les frais inclus.
+>
+> Ceci est une demande de devis, pas une commande.
+
 No account, paid plan or supplier contact was created through this research. No displayed lot has been promoted to a supplier quote. A supplier quote requires a dated document or message specifying vendor identity, SKU/specification, quantity tier, unit price, availability, payment terms, handover/delivery cost, and validity period.
 
 ## Confidence semantics
