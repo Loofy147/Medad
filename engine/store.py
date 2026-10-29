@@ -163,10 +163,17 @@ class TransactionalStore(Protocol):
                 (run_id,),
             ).fetchone()
             if existing_run is not None:
-                if existing_run["content_hash"] != run_content_hash:
+                existing_report = json.loads(existing_run["payload_json"])
+                existing_manifest = existing_report.get("run_manifest", {})
+                same_identity = all(
+                    existing_manifest.get(field) == manifest.get(field)
+                    for field in ("run_id", "case_id", "input_hash", "report_hash", "code_revision")
+                )
+                if not same_identity:
                     raise StoreConflict(
-                        f"run_id {run_id!r} already exists with different report content"
+                        f"run_id {run_id!r} already exists with different input/report identity"
                     )
+                # created_at can differ on a replay; stable run identity is the validated input/report hash.
                 # A prior run is idempotent only if all of its referenced evidence still exists unchanged.
                 for evidence_id, (_, _, content_hash) in normalized.items():
                     current_evidence = connection.execute(
