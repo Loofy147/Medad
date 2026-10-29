@@ -355,6 +355,7 @@ class JsonlEventJournal:
         transition["event_id"] = sha256(transition_key.encode("utf-8")).hexdigest()[:24]
         transition["previous_event_id"] = event_id
         transition["actor"] = actor
+        transition["reason"] = reason
         transition["new_state"] = new_state
         transition["state"] = new_state
         transition["action_kind"] = "STATE_TRANSITION"
