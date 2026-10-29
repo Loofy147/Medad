@@ -82,6 +82,28 @@ class DecisionWorkflowTests(unittest.TestCase):
         self.assertEqual(len(result["run_manifest"]["report_hash"]), 64)
         self.assertEqual(result["run_manifest"]["mode"], "ANALYSIS_ONLY_NO_EXTERNAL_SIDE_EFFECTS")
 
+    def test_report_hash_covers_calculated_outputs_and_is_stable_for_same_run(self):
+        payload = base_payload()
+        first = build_decision_run(payload)
+        second = build_decision_run(payload)
+        self.assertEqual(first["run_manifest"]["input_hash"], second["run_manifest"]["input_hash"])
+        self.assertEqual(first["run_manifest"]["report_hash"], second["run_manifest"]["report_hash"])
+
+        changed = deepcopy(payload)
+        changed["inputs"]["purchase_cost"] += 25
+        third = build_decision_run(changed)
+        self.assertNotEqual(first["run_manifest"]["report_hash"], third["run_manifest"]["report_hash"])
+
+    def test_workflow_rejects_unknown_fields_and_missing_revision(self):
+        payload = base_payload()
+        payload["unrecognized_flag"] = True
+        with self.assertRaises(ValueError):
+            build_decision_run(payload)
+        payload = base_payload()
+        payload.pop("code_revision")
+        with self.assertRaises(ValueError):
+            build_decision_run(payload)
+
     def test_missing_gates_block_even_high_quality_positive_economics(self):
         payload = base_payload()
         payload["gates"] = []
