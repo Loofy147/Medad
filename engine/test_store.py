@@ -442,7 +442,7 @@ class SQLiteStoreTests(unittest.TestCase):
 
     def test_retained_artifact_bytes_are_rehashed_and_audited(self):
         content = b"evidence artifact: exact retained bytes"
-        byte_store = LocalArtifactByteStore(self.root / "artifact-blobs")
+        byte_store = LocalArtifactByteStore(Path(self.directory.name) / "artifact-blobs")
         blob = byte_store.put_bytes(content)
         self.store.put_record(
             self.analyst,
@@ -460,7 +460,7 @@ class SQLiteStoreTests(unittest.TestCase):
         self.assertEqual(verified["actual_sha256"], blob["sha256"])
         self.assertEqual(verified["byte_length"], len(content))
 
-        path = self.root / "artifact-blobs" / "sha256" / blob["sha256"][:2] / blob["sha256"]
+        path = Path(self.directory.name) / "artifact-blobs" / "sha256" / blob["sha256"][:2] / blob["sha256"]
         path.write_bytes(b"tampered retained content")
         failed = self.store.verify_retained_artifact(
             self.auditor, "artifact-verified", byte_store,
