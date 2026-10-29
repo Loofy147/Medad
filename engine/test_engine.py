@@ -24,6 +24,13 @@ class UnitEconomicsTests(unittest.TestCase):
         self.assertIsNone(result["economics_dzd"]["ad_cost_per_placed_order"])
         self.assertIsNone(result["economics_dzd"]["profit_per_retained_order"])
 
+    def test_non_finite_monetary_inputs_are_rejected(self):
+        import math
+        for value in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    evaluate(Inputs(purchase_cost=value))
+
     def test_invalid_rates_and_negative_costs_are_rejected(self):
         with self.assertRaises(ValueError):
             evaluate(Inputs(delivery_rate=1.2))
