@@ -166,6 +166,20 @@ class InstantEventTests(unittest.TestCase):
             self.assertEqual(replay["reason"], "IDEMPOTENT_REPLAY")
             self.assertEqual(len(journal.list_events()), 1)
 
+    def test_same_snapshot_with_new_observation_time_replays_idempotently(self):
+        from datetime import datetime, timezone, timedelta
+        economics = evaluate(Inputs())
+        first_time = datetime.now(timezone.utc).isoformat()
+        second_time = (datetime.now(timezone.utc) + timedelta(seconds=2)).isoformat()
+        first = generate_instant_events(economics, subject_id="stable-snapshot", observed_at=first_time)[0]
+        second = generate_instant_events(economics, subject_id="stable-snapshot", observed_at=second_time)[0]
+        with tempfile.TemporaryDirectory() as directory:
+            journal = JsonlEventJournal(Path(directory) / "events.jsonl")
+            self.assertTrue(journal.append(first)["inserted"])
+            replay = journal.append(second)
+            self.assertFalse(replay["inserted"])
+            self.assertEqual(replay["reason"], "IDEMPOTENT_REPLAY")
+
     def test_idempotency_key_reuse_with_different_content_fails_closed(self):
         event = generate_instant_events(evaluate(Inputs()), subject_id="candidate-demo")[0]
         with tempfile.TemporaryDirectory() as directory:
