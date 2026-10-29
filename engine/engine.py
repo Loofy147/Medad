@@ -120,7 +120,7 @@ def assess_data_quality(x: Inputs) -> dict[str, Any]:
         if key in effective_labels:
             candidates.append(evidence_weights[effective_labels[key]])
         if candidates:
-            group_scores[key] = sum(candidates) / len(candidates)
+            group_scores[key] = round(sum(candidates) / len(candidates), 6)
 
     # Missing groups reduce coverage instead of silently receiving a zero value.
     coverage = len(group_scores) / len(expected_groups)
