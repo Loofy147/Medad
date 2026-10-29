@@ -34,15 +34,17 @@ def _date(value: Any) -> bool:
 
 def validate_evidence_record(record: dict[str, Any]) -> list[str]:
     """Return contract violations; an empty list means structurally valid, not proven true."""
+    if not isinstance(record, dict):
+        return ["evidence record must be an object"]
     errors: list[str] = []
     for field in ("evidence_id", "source_kind", "evidence_label", "polarity", "observed_on"):
         if not _text(record.get(field)):
             errors.append(f"{field} is required")
-    if record.get("source_kind") not in SOURCE_KINDS:
+    if not isinstance(record.get("source_kind"), str) or record["source_kind"] not in SOURCE_KINDS:
         errors.append(f"source_kind must be one of {sorted(SOURCE_KINDS)}")
-    if record.get("evidence_label") not in EVIDENCE_LABELS:
+    if not isinstance(record.get("evidence_label"), str) or record["evidence_label"] not in EVIDENCE_LABELS:
         errors.append(f"evidence_label must be one of {sorted(EVIDENCE_LABELS)}")
-    if record.get("polarity") not in POLARITIES:
+    if not isinstance(record.get("polarity"), str) or record["polarity"] not in POLARITIES:
         errors.append(f"polarity must be one of {sorted(POLARITIES)}")
     if not _date(record.get("observed_on")):
         errors.append("observed_on must be a valid non-future YYYY-MM-DD date")
@@ -76,12 +78,17 @@ def validate_evidence_record(record: dict[str, Any]) -> list[str]:
 
 def validate_claim(claim: dict[str, Any], evidence_records: list[dict[str, Any]]) -> list[str]:
     """Validate claim shape and all referenced evidence without changing the declared label."""
+    if not isinstance(claim, dict):
+        return ["claim must be an object"]
     errors: list[str] = []
     for field in ("claim_id", "statement", "declared_status"):
         if not _text(claim.get(field)):
             errors.append(f"{field} is required")
-    if claim.get("declared_status") not in CLAIM_LABELS:
+    if not isinstance(claim.get("declared_status"), str) or claim["declared_status"] not in CLAIM_LABELS:
         errors.append(f"declared_status must be one of {sorted(CLAIM_LABELS)}")
+    if not isinstance(evidence_records, list):
+        errors.append("evidence_records must be an array")
+        evidence_records = []
     refs = claim.get("evidence_refs", [])
     if not isinstance(refs, list):
         errors.append("evidence_refs must be an array")
@@ -305,14 +312,19 @@ def assess_gates(
 
 def validate_continuation_contract(contract: dict[str, Any]) -> list[str]:
     """Validate a compact handoff so work can resume from evidence, not recollection."""
+    if not isinstance(contract, dict):
+        return ["continuation contract must be an object"]
     errors: list[str] = []
     required = ("task_id", "goal", "current_state_ref", "last_verified_ref", "next_discriminating_test", "owner")
     for field in required:
         if not _text(contract.get(field)):
             errors.append(f"{field} is required")
     for field in ("open_gates", "known_failures", "assumptions", "next_actions"):
-        if not isinstance(contract.get(field), list):
+        value = contract.get(field)
+        if not isinstance(value, list):
             errors.append(f"{field} must be an array")
+        elif any(not _text(item) for item in value):
+            errors.append(f"every item in {field} must be a non-empty string")
     verified_at = contract.get("last_verified_at")
     if not _date(verified_at):
         errors.append("last_verified_at must be a valid non-future YYYY-MM-DD date")
