@@ -26,6 +26,7 @@ class Inputs:
     other_fixed_costs: float = 3000.0
     confidence: dict[str, float] | None = None
     evidence: dict[str, str] | None = None
+    evidence_sources: dict[str, dict[str, Any]] | None = None  # URL, observed_on, label
     sample_size: int | None = None
     data_age_days: int | None = None
 
@@ -62,6 +63,22 @@ def _validate(x: Inputs) -> None:
     for source, score in (x.confidence or {}).items():
         if not isinstance(score, (int, float)) or isinstance(score, bool) or not 0 <= score <= 1:
             raise ValueError(f"confidence[{source!r}] must be between 0 and 1")
+    from datetime import date
+    for source, details in (x.evidence_sources or {}).items():
+        if not isinstance(details, dict):
+            raise ValueError(f"evidence_sources[{source!r}] must be an object")
+        url = details.get("url")
+        observed_on = details.get("observed_on")
+        if not isinstance(url, str) or not url.startswith(("https://", "http://")):
+            raise ValueError(f"evidence_sources[{source!r}].url must be an HTTP(S) URL")
+        if not isinstance(observed_on, str):
+            raise ValueError(f"evidence_sources[{source!r}].observed_on must be YYYY-MM-DD")
+        try:
+            date.fromisoformat(observed_on)
+        except ValueError as exc:
+            raise ValueError(f"evidence_sources[{source!r}].observed_on must be YYYY-MM-DD") from exc
+        if details.get("label") not in VALID_EVIDENCE:
+            raise ValueError(f"evidence_sources[{source!r}].label must be one of {sorted(VALID_EVIDENCE)}")
 
 
 def assess_data_quality(x: Inputs) -> dict[str, Any]:
@@ -78,11 +95,21 @@ def assess_data_quality(x: Inputs) -> dict[str, Any]:
     sample_factor = 0.5 if x.sample_size is None else min(1.0, x.sample_size / 100.0)
     score = confidence_score * (0.75 + 0.25 * freshness) * (0.75 + 0.25 * sample_factor)
     expected_groups = {"unit_cost", "selling_price", "delivery_rate", "return_rate", "ad_cost"}
-    coverage = len(expected_groups.intersection(set(scores) | set(evidence))) / len(expected_groups)
-    grade = "HIGH" if score >= 0.8 and coverage >= 0.8 else "MEDIUM" if score >= 0.55 and coverage >= 0.4 else "LOW"
+    observed_groups = set(scores) | set(evidence)
+    coverage = len(expected_groups.intersection(observed_groups)) / len(expected_groups)
+    provenance = x.evidence_sources or {}
+    provenance_groups = {key for key, detail in provenance.items()
+        if isinstance(detail, dict) and detail.get("url") and detail.get("observed_on")
+        and detail.get("label") in VALID_EVIDENCE}
+    provenance_coverage = len(expected_groups.intersection(provenance_groups)) / len(expected_groups)
+    grade = "HIGH" if score >= 0.8 and coverage >= 0.8 and provenance_coverage >= 0.8 else "MEDIUM" if score >= 0.55 and coverage >= 0.4 and provenance_coverage >= 0.4 else "LOW"
+    if provenance_coverage == 0:
+        grade = "LOW"  # Numeric confidence without traceable sources cannot earn a higher evidence grade.
     warnings = []
     if coverage < 0.8:
         warnings.append("Important evidence groups are missing.")
+    if provenance_coverage < 0.8:
+        warnings.append("Source URL, observation date, and evidence label are missing for some or all input groups.")
     if x.sample_size is None or x.sample_size < 30:
         warnings.append("Observed sample size is absent or small.")
     if x.data_age_days is None or x.data_age_days > 90:
@@ -91,7 +118,8 @@ def assess_data_quality(x: Inputs) -> dict[str, Any]:
         warnings.append("One or more inputs are assumptions, not verified evidence.")
     return {
         "score": round(score, 4), "grade": grade, "coverage": round(coverage, 4),
-        "components": scores, "evidence_labels": evidence, "sample_size": x.sample_size,
+        "provenance_coverage": round(provenance_coverage, 4), "components": scores,
+        "evidence_labels": evidence, "evidence_sources": provenance, "sample_size": x.sample_size,
         "data_age_days": x.data_age_days, "warnings": warnings,
         "note": "Heuristic evidence-quality indicator, not a statistical probability of profit or success.",
     }
@@ -120,11 +148,13 @@ def evaluate(x: Inputs) -> dict[str, Any]:
         - return_handling - other_variable
     )
     profit = contribution_before_ads - x.ad_spend - x.other_fixed_costs
-    break_even_ad_spend = max(0.0, contribution_before_ads - x.other_fixed_costs)
+    break_even_surplus = contribution_before_ads - x.other_fixed_costs
+    # No ad budget can break even when the product loses money before ads are counted.
+    break_even_ad_spend = break_even_surplus if break_even_surplus > 0 else None
     cac_per_placed = x.ad_spend / placed if placed else None
     cac_per_retained = x.ad_spend / retained if retained else None
-    break_even_cac_per_placed = break_even_ad_spend / placed if placed else None
-    break_even_cac_per_retained = break_even_ad_spend / retained if retained else None
+    break_even_cac_per_placed = break_even_ad_spend / placed if placed and break_even_ad_spend is not None else None
+    break_even_cac_per_retained = break_even_ad_spend / retained if retained and break_even_ad_spend is not None else None
     margin = profit / (revenue + customer_delivery_revenue) if (revenue + customer_delivery_revenue) else None
     return {
         "product_name": x.product_name,
@@ -148,7 +178,8 @@ def evaluate(x: Inputs) -> dict[str, Any]:
             "profit_per_retained_order": round(profit / retained, 2) if retained else None,
             "ad_cost_per_placed_order": round(cac_per_placed, 2) if cac_per_placed is not None else None,
             "ad_cost_per_retained_order": round(cac_per_retained, 2) if cac_per_retained is not None else None,
-            "break_even_ad_spend": round(break_even_ad_spend, 2),
+            "break_even_ad_spend": round(break_even_ad_spend, 2) if break_even_ad_spend is not None else None,
+            "break_even_possible_before_ads": break_even_ad_spend is not None,
             "break_even_ad_cost_per_placed_order": round(break_even_cac_per_placed, 2) if break_even_cac_per_placed is not None else None,
             "break_even_ad_cost_per_retained_order": round(break_even_cac_per_retained, 2) if break_even_cac_per_retained is not None else None,
         },
