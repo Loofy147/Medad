@@ -65,6 +65,7 @@ def _valid_supplier_quotes(candidate: dict[str, Any]) -> list[dict[str, Any]]:
             and quote.get("seller_verified") is True
             and quote.get("sku") == sku
             and _valid_date(quote.get("quoted_on"))
+            and (date.today() - date.fromisoformat(quote["quoted_on"])).days <= 90
             and _valid_date(quote.get("valid_until"), allow_future=True)
             and quote.get("valid_until") >= date.today().isoformat()
             and isinstance(min_qty, int)
