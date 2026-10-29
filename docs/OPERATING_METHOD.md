@@ -77,7 +77,7 @@ The integrated result contains:
 - a decision stage with named blockers and authorization_granted=false;
 - a provenance summary for input evidence records and URL references.
 
-The run contract requires every core economics field explicitly. Missing purchase cost is not filled from defaults. Evidence records are structurally validated even if not referenced by a claim or gate. A gate must pass with actual supplied evidence records and reviewer metadata. Critical claims that are only supported by assumptions block advancement. The run does not persist itself, execute a financial action, send notifications, or prove that the referenced artifacts are authentic. Its hashes identify the input/report packet; they are not a signature or tamper-proof storage.
+The run contract requires every core economics field, a schema version, observation timestamp, code revision and run ID explicitly. Optional run_note is part of the input hash. Missing purchase cost is not filled from defaults. Evidence records are structurally validated even if not referenced by a claim or gate. A gate must pass with actual supplied evidence records and reviewer metadata. Critical claims that are only supported by assumptions block advancement. The run does not persist itself, execute a financial action, send notifications, or prove that the referenced artifacts are authentic. Its hashes identify the input/report packet; they are not a signature or tamper-proof storage.
 
 CLI entry point: python cli.py workflow --input decision-run.json. The result is analysis-only. A TEST_CANDIDATE economics result alone does not pass the workflow; required gates and critical claims must also be resolved.
 ## Instant event protocol
@@ -160,6 +160,7 @@ Implemented as standard-library Python modules:
 - sensitivity.py: deterministic sensitivity and threshold calculations;
 - decision_kernel.py: evidence/claim validation, generic gates and continuation contract;
 - opportunity.py: product-specific source checks and stage gates;
-- instant.py: rule-generated alerts and local append-only journal.
+- instant.py: rule-generated alerts and local append-only event journal;
+- run_journal.py: optional append-only, idempotent decision-run journal with record checksums.
 
 Not yet implemented: API/database service, multi-user authorization, synchronized event delivery, persistent evidence/artifact storage, external marketplace/supplier/courier/ad adapters, authenticated partner actions, real-time notification transport, model calibration from historical cohorts, and production deployment. Those boundaries must remain explicit in the UI.
