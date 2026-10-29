@@ -276,7 +276,7 @@ class SQLiteStoreTests(unittest.TestCase):
             "subject_id": "case:stale-review",
             "rationale": "Try to advance on a stale review",
             "evidence_refs": ["mutable-evidence"],
-            "reviewed_at": "2026-10-29T12:20:00+00:00",
+            "reviewed_at": "2026-10-29T12:30:00+00:00",
             "stop_condition": "Stop on negative contribution",
             "rollback_plan": "Return stage to HOLD",
         }
