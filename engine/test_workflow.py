@@ -104,6 +104,18 @@ class DecisionWorkflowTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_decision_run(payload)
 
+    def test_checked_in_template_runs_but_stays_blocked_as_synthetic(self):
+        from pathlib import Path
+        template = Path(__file__).resolve().parent.parent / "docs" / "examples" / "decision-run.template.json"
+        import json
+        payload = json.loads(template.read_text(encoding="utf-8"))
+        payload["run_id"] = "template-test-run"
+        payload["code_revision"] = "test-revision"
+        result = build_decision_run(payload)
+        self.assertEqual(result["decision"]["stage"], "BLOCKED_UNVERIFIED_ECONOMICS")
+        self.assertFalse(result["decision"]["authorization_granted"])
+        self.assertEqual(result["gates"]["gate_count"], 0)
+
     def test_missing_gates_block_even_high_quality_positive_economics(self):
         payload = base_payload()
         payload["gates"] = []
