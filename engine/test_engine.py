@@ -237,6 +237,18 @@ class OpportunityGateTests(unittest.TestCase):
         self.assertEqual(result["valid_supplier_quote_count"], 2)
         self.assertTrue(result["missing_test_gates"])
 
+    def test_product_spec_must_be_traceable_and_sample_must_match_it(self):
+        from opportunity import assess_candidate
+        candidate = self.research_ready_candidate()
+        candidate.pop("product_spec")
+        result = assess_candidate(candidate)
+        self.assertEqual(result["stage"], "RESEARCH_ONLY")
+
+        candidate = self.research_ready_candidate()
+        candidate["sample_inspection"]["compared_to_spec_artifact_ref"] = "private://other-spec"
+        result = assess_candidate(candidate)
+        self.assertEqual(result["stage"], "RESEARCH_ONLY")
+
     def test_supplier_quotes_must_be_current_and_for_two_verified_sellers(self):
         from datetime import date, timedelta
         from opportunity import assess_candidate
