@@ -95,35 +95,78 @@ def assess_data_quality(x: Inputs) -> dict[str, Any]:
     evidence = x.evidence or {}
     provenance = x.evidence_sources or {}
     if not scores and not evidence and not provenance and x.sample_size is None and x.data_age_days is None:
-        return {"score": None, "grade": "UNKNOWN", "coverage": 0.0,
-                "note": "No evidence metadata supplied; forecasts are unverified."}
+        return {
+            "score": None, "grade": "UNKNOWN", "coverage": 0.0,
+            "note": "No evidence metadata supplied; forecasts are unverified.",
+        }
+
     evidence_weights = {"observed": 1.0, "quoted": 0.8, "estimated": 0.45, "assumed": 0.15}
-    components: list[float] = list(scores.values())
-    components.extend(evidence_weights[v] for v in evidence.values())
-    confidence_score = sum(components) / len(components) if components else 0.0
-    # Derive the oldest source age from observed_on. A user-supplied age may not make stale sources look fresh.
-    source_ages = [(date.today() - date.fromisoformat(item["observed_on"])).days
-                   for item in provenance.values() if isinstance(item, dict) and isinstance(item.get("observed_on"), str)]
+    expected_groups = ("unit_cost", "selling_price", "delivery_rate", "return_rate", "ad_cost")
+
+    # Provenance can supply the label for a group, but a source label is not counted
+    # twice when an operator also entered the same label manually.
+    effective_labels = dict(evidence)
+    for key, detail in provenance.items():
+        if key not in effective_labels and isinstance(detail, dict):
+            label = detail.get("label")
+            if isinstance(label, str) and label in VALID_EVIDENCE:
+                effective_labels[key] = label
+
+    group_scores: dict[str, float] = {}
+    for key in expected_groups:
+        candidates: list[float] = []
+        if key in scores:
+            candidates.append(float(scores[key]))
+        if key in effective_labels:
+            candidates.append(evidence_weights[effective_labels[key]])
+        if candidates:
+            group_scores[key] = sum(candidates) / len(candidates)
+
+    # Missing groups reduce coverage instead of silently receiving a zero value.
+    coverage = len(group_scores) / len(expected_groups)
+    confidence_score = sum(group_scores.values()) / len(group_scores) if group_scores else 0.0
+
+    # Derive freshness from the oldest source and supplied age so a stale source
+    # cannot be made fresh by a more optimistic manual age.
+    source_ages = [
+        (date.today() - date.fromisoformat(item["observed_on"])).days
+        for item in provenance.values()
+        if isinstance(item, dict) and isinstance(item.get("observed_on"), str)
+    ]
     ages = source_ages + ([x.data_age_days] if x.data_age_days is not None else [])
     effective_age = max(ages) if ages else None
-    # Unknown freshness and sample size reduce, rather than improve, evidence quality.
     freshness = 0.4 if effective_age is None else max(0.0, 1.0 - effective_age / 180.0)
     sample_factor = 0.25 if x.sample_size is None else min(1.0, x.sample_size / 100.0)
     score = confidence_score * (0.75 + 0.25 * freshness) * (0.75 + 0.25 * sample_factor)
-    expected_groups = {"unit_cost", "selling_price", "delivery_rate", "return_rate", "ad_cost"}
-    observed_groups = set(scores) | set(evidence)
-    coverage = len(expected_groups.intersection(observed_groups)) / len(expected_groups)
-    provenance_groups = {key for key, detail in provenance.items()
-        if isinstance(detail, dict) and detail.get("url") and detail.get("observed_on")
-        and detail.get("label") in VALID_EVIDENCE}
-    provenance_coverage = len(expected_groups.intersection(provenance_groups)) / len(expected_groups)
-    has_assumptions = any(v == "assumed" for v in evidence.values())
+
+    provenance_groups = {
+        key for key, detail in provenance.items()
+        if key in expected_groups
+        and isinstance(detail, dict)
+        and isinstance(detail.get("url"), str)
+        and detail["url"].startswith("https://")
+        and isinstance(detail.get("observed_on"), str)
+        and isinstance(detail.get("label"), str)
+        and detail["label"] in VALID_EVIDENCE
+    }
+    provenance_coverage = len(provenance_groups) / len(expected_groups)
+    has_assumptions = any(effective_labels.get(key) == "assumed" for key in expected_groups)
     has_usable_sample = x.sample_size is not None and x.sample_size >= 30
     has_freshness = effective_age is not None and effective_age <= 90
-    grade = "HIGH" if score >= 0.8 and coverage >= 0.8 and provenance_coverage >= 0.8 and has_usable_sample and has_freshness and not has_assumptions else "MEDIUM" if score >= 0.55 and coverage >= 0.4 and provenance_coverage >= 0.4 and has_usable_sample and has_freshness else "LOW"
-    if provenance_coverage == 0:
-        grade = "LOW"  # Numeric confidence without traceable sources cannot earn a higher evidence grade.
-    warnings = []
+
+    grade = (
+        "HIGH"
+        if score >= 0.8 and coverage >= 0.8 and provenance_coverage >= 0.8
+        and has_usable_sample and has_freshness and not has_assumptions
+        else "MEDIUM"
+        if score >= 0.55 and coverage >= 0.4 and provenance_coverage >= 0.4
+        and has_usable_sample and has_freshness
+        else "LOW"
+    )
+    if not group_scores or provenance_coverage == 0:
+        grade = "LOW"
+
+    warnings: list[str] = []
     if coverage < 0.8:
         warnings.append("Important evidence groups are missing.")
     if provenance_coverage < 0.8:
@@ -132,14 +175,21 @@ def assess_data_quality(x: Inputs) -> dict[str, Any]:
         warnings.append("Observed sample size is absent or small.")
     if effective_age is None or effective_age > 90:
         warnings.append("Source freshness is unknown or at least one evidence source is older than 90 days.")
-    if any(v == "assumed" for v in evidence.values()):
-        warnings.append("One or more inputs are assumptions, not verified evidence.")
+    if has_assumptions:
+        warnings.append("One or more important evidence groups are assumptions, not verified evidence.")
     return {
-        "score": round(score, 4), "grade": grade, "coverage": round(coverage, 4),
-        "provenance_coverage": round(provenance_coverage, 4), "components": scores,
-        "evidence_labels": evidence, "evidence_sources": provenance, "sample_size": x.sample_size,
-        "data_age_days": effective_age, "warnings": warnings,
-        "note": "Heuristic evidence-quality indicator, not a statistical probability of profit or success.",
+        "score": round(score, 4),
+        "grade": grade,
+        "coverage": round(coverage, 4),
+        "provenance_coverage": round(provenance_coverage, 4),
+        "components": group_scores,
+        "confidence_inputs": scores,
+        "evidence_labels": effective_labels,
+        "evidence_sources": provenance,
+        "sample_size": x.sample_size,
+        "data_age_days": effective_age,
+        "warnings": warnings,
+        "note": "Heuristic completeness/freshness indicator, not a statistical probability of truth, demand, or profit.",
     }
 
 
