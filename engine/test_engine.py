@@ -123,7 +123,7 @@ class OpportunityGateTests(unittest.TestCase):
                             "component_costs_dzd": {"purchase": 470, "packaging": 30, "inbound_transport": 20},
                             "unit_cost_dzd": 520, "source_quote_ids": ["quote-2"]},
             "courier_quote": {"artifact_ref": "private://evidence/courier", "quoted_on": recent,
-                              "seller_account_verified": True, "origin_wilaya": "Blida",
+                              "valid_until": later, "seller_account_verified": True, "origin_wilaya": "Blida",
                               "coverage_wilayas": ["Blida", "Alger"], "outbound_dzd": 450,
                               "failed_delivery_dzd": 250, "return_dzd": 200, "cod_remittance_days": 5,
                               "contract_or_quote_id": "carrier-quote-1"},
@@ -181,6 +181,22 @@ class OpportunityGateTests(unittest.TestCase):
         candidate["supplier_quotes"][1]["valid_until"] = (date.today() - timedelta(days=1)).isoformat()
         result = assess_candidate(candidate)
         self.assertEqual(result["stage"], "RESEARCH_ONLY")
+
+    def test_expired_courier_quote_blocks_research_gate(self):
+        from datetime import date, timedelta
+        from opportunity import assess_candidate
+        candidate = self.research_ready_candidate()
+        candidate["courier_quote"]["valid_until"] = (date.today() - timedelta(days=1)).isoformat()
+        self.assertEqual(assess_candidate(candidate)["stage"], "RESEARCH_ONLY")
+
+    def test_stale_supplier_quote_does_not_count(self):
+        from datetime import date, timedelta
+        from opportunity import assess_candidate
+        candidate = self.research_ready_candidate()
+        candidate["supplier_quotes"][1]["quoted_on"] = (date.today() - timedelta(days=120)).isoformat()
+        candidate["supplier_quotes"][1]["valid_until"] = (date.today() + timedelta(days=30)).isoformat()
+        self.assertEqual(assess_candidate(candidate)["stage"], "RESEARCH_ONLY")
+        self.assertEqual(assess_candidate(candidate)["valid_supplier_quote_count"], 1)
 
     def test_landed_cost_must_reconcile_with_its_components(self):
         from opportunity import assess_candidate
