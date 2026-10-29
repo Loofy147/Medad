@@ -83,5 +83,17 @@ def load_snapshot(path: str | Path) -> dict[str, Any]:
         for source_id in refs:
             if source_id not in source_ids:
                 raise ValueError(f"Candidate {candidate_id!r} references unknown source {source_id!r}")
+    lead_ids = set()
+    for lead in snapshot.get("sourcing_leads", []):
+        lead_id = lead.get("id")
+        if not lead_id or lead_id in lead_ids:
+            raise ValueError(f"Missing or duplicate sourcing lead id: {lead_id!r}")
+        lead_ids.add(lead_id)
+        linked_ids = [lead.get("platform_source_id"), *lead.get("due_diligence_source_ids", [])]
+        if not linked_ids or any(source_id not in source_ids for source_id in linked_ids):
+            raise ValueError(f"Sourcing lead {lead_id!r} references unknown source ids")
+        # Discovery platforms must never masquerade as supplier quotes.
+        if lead.get("quote_verified") is True and lead.get("status") == "DISCOVERY_LEAD_ONLY":
+            raise ValueError(f"Sourcing lead {lead_id!r} cannot be both discovery-only and quote-verified")
     snapshot["readiness"] = [assess_candidate(item) for item in snapshot.get("candidates", [])]
     return snapshot
