@@ -1,7 +1,8 @@
+import json
 import sqlite3
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from store import (
@@ -11,6 +12,7 @@ from store import (
     SQLiteStore,
     StoreConflict,
 )
+from workflow import build_decision_run
 
 
 def actor(subject: str, *roles: str) -> Actor:
@@ -47,19 +49,16 @@ def evidence_payload(
     return payload
 
 
-def valid_run_payload(run_id: str) -> dict:
-    return {
-        "schema_version": "medad.decision-run.v1",
-        "run_manifest": {
-            "run_id": run_id,
-            "case_id": "case:store-fixture",
-            "code_revision": "test-revision",
-            "mode": "ANALYSIS_ONLY_NO_EXTERNAL_SIDE_EFFECTS",
-            "input_hash": "a" * 64,
-            "report_hash": "b" * 64,
-        },
-        "decision": {"authorization_granted": False},
-    }
+TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "docs" / "examples" / "decision-run.template.json"
+
+
+def valid_run_payload(run_id: str, evidence_records: list[dict] | None = None) -> dict:
+    payload = json.loads(TEMPLATE_PATH.read_text(encoding="utf-8"))
+    payload["run_id"] = run_id
+    payload["code_revision"] = "test-revision"
+    payload["observed_at"] = datetime.now(timezone.utc).isoformat()
+    payload["evidence_records"] = evidence_records or []
+    return build_decision_run(payload)
 
 
 class SQLiteStoreTests(unittest.TestCase):
@@ -311,6 +310,46 @@ class SQLiteStoreTests(unittest.TestCase):
         payload["authorization_granted"] = True
         with self.assertRaisesRegex(ValueError, "unknown decision fields"):
             self.store.record_decision(self.approver, "stage-auth-flag", payload)
+
+    def test_run_packet_commits_evidence_and_report_atomically_and_replays_idempotently(self):
+        evidence = evidence_payload("atomic-evidence")
+        report = valid_run_payload("atomic-run", [evidence])
+
+        first = self.store.commit_run_packet(
+            self.analyst, report, [evidence], reason="Persist reproducible run with its evidence"
+        )
+        self.assertTrue(first["inserted"])
+        self.assertEqual(first["run"]["record_id"], "atomic-run")
+        self.assertEqual(first["evidence"][0]["record_id"], "atomic-evidence")
+        self.assertIsNotNone(self.store.get_record(self.analyst, "runs", "atomic-run"))
+
+        event_count = len(self.store.audit_events(self.auditor))
+        replay = self.store.commit_run_packet(
+            self.analyst, report, [evidence], reason="Replaying the same run packet"
+        )
+        self.assertFalse(replay["inserted"])
+        self.assertEqual(len(self.store.audit_events(self.auditor)), event_count)
+
+    def test_run_packet_conflict_rolls_back_prior_evidence_insertion_and_audit(self):
+        existing = evidence_payload("z-conflict-evidence")
+        self.store.put_record(
+            self.analyst, "evidence", "z-conflict-evidence", existing,
+            reason="Seed an existing evidence identity",
+        )
+        new_evidence = evidence_payload("a-new-evidence")
+        conflicting_revision = evidence_payload("z-conflict-evidence", polarity="contradicts")
+        report = valid_run_payload("rollback-run", [new_evidence, conflicting_revision])
+        events_before = len(self.store.audit_events(self.auditor))
+
+        with self.assertRaises(StoreConflict):
+            self.store.commit_run_packet(
+                self.analyst, report, [new_evidence, conflicting_revision],
+                reason="A conflicting evidence identity must abort the packet",
+            )
+
+        self.assertIsNone(self.store.get_record(self.analyst, "evidence", "a-new-evidence"))
+        self.assertIsNone(self.store.get_record(self.analyst, "runs", "rollback-run"))
+        self.assertEqual(len(self.store.audit_events(self.auditor)), events_before)
 
     def test_schema_migration_is_recorded_and_data_survives_reopen(self):
         self.store.put_record(
