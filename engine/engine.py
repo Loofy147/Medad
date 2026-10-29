@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import date
+from math import isfinite
 from typing import Any
 import json
 
@@ -44,25 +45,27 @@ VALID_EVIDENCE = {"observed", "quoted", "estimated", "assumed"}
 
 
 def _validate(x: Inputs) -> None:
+    if not isinstance(x.product_name, str) or not x.product_name.strip():
+        raise ValueError("product_name must be a non-empty string")
     for name in NONNEGATIVE_FIELDS:
         value = getattr(x, name)
-        if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0:
-            raise ValueError(f"{name} must be a non-negative number")
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or not isfinite(value) or value < 0:
+            raise ValueError(f"{name} must be a finite non-negative number")
     if not isinstance(x.placed_orders, int) or isinstance(x.placed_orders, bool) or x.placed_orders < 0:
         raise ValueError("placed_orders must be a non-negative integer")
     for name in RATE_FIELDS:
         value = getattr(x, name)
-        if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 1:
-            raise ValueError(f"{name} must be between 0 and 1")
-    if x.sample_size is not None and x.sample_size < 0:
-        raise ValueError("sample_size must be >= 0")
-    if x.data_age_days is not None and x.data_age_days < 0:
-        raise ValueError("data_age_days must be >= 0")
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or not isfinite(value) or not 0 <= value <= 1:
+            raise ValueError(f"{name} must be finite and between 0 and 1")
+    if x.sample_size is not None and (not isinstance(x.sample_size, int) or isinstance(x.sample_size, bool) or x.sample_size < 0):
+        raise ValueError("sample_size must be a non-negative integer")
+    if x.data_age_days is not None and (not isinstance(x.data_age_days, int) or isinstance(x.data_age_days, bool) or x.data_age_days < 0):
+        raise ValueError("data_age_days must be a non-negative integer")
     for source, label in (x.evidence or {}).items():
-        if label not in VALID_EVIDENCE:
+        if not isinstance(label, str) or label not in VALID_EVIDENCE:
             raise ValueError(f"evidence[{source!r}] must be one of {sorted(VALID_EVIDENCE)}")
     for source, score in (x.confidence or {}).items():
-        if not isinstance(score, (int, float)) or isinstance(score, bool) or not 0 <= score <= 1:
+        if not isinstance(score, (int, float)) or isinstance(score, bool) or not isfinite(score) or not 0 <= score <= 1:
             raise ValueError(f"confidence[{source!r}] must be between 0 and 1")
     for source, details in (x.evidence_sources or {}).items():
         if not isinstance(details, dict):
@@ -79,7 +82,7 @@ def _validate(x: Inputs) -> None:
             raise ValueError(f"evidence_sources[{source!r}].observed_on must be YYYY-MM-DD") from exc
         if parsed_date > date.today():
             raise ValueError(f"evidence_sources[{source!r}].observed_on cannot be in the future")
-        if details.get("label") not in VALID_EVIDENCE:
+        if not isinstance(details.get("label"), str) or details.get("label") not in VALID_EVIDENCE:
             raise ValueError(f"evidence_sources[{source!r}].label must be one of {sorted(VALID_EVIDENCE)}")
         declared_label = (x.evidence or {}).get(source)
         if declared_label is not None and declared_label != details.get("label"):
