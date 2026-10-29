@@ -65,6 +65,8 @@ def validate_evidence_record(record: dict[str, Any]) -> list[str]:
     if record.get("evidence_label") == "observed" and record.get("sample_size") is None:
         errors.append("observed evidence must declare sample_size (zero is permitted but weak)")
     if record.get("source_kind") == "experiment":
+        if record.get("evidence_label") != "observed":
+            errors.append("experiment evidence must be labeled observed")
         if not _text(record.get("method_ref")):
             errors.append("experiment evidence requires method_ref")
         if record.get("sample_size", 0) <= 0:
