@@ -83,9 +83,31 @@ def _valid_supplier_quotes(candidate: dict[str, Any]) -> list[dict[str, Any]]:
     return valid
 
 
+def _valid_product_spec(candidate: dict[str, Any]) -> bool:
+    spec = candidate.get("product_spec")
+    if not isinstance(spec, dict) or not _has_artifact(spec, "verified_on"):
+        return False
+    age = (date.today() - date.fromisoformat(spec["verified_on"])).days
+    source_ref = spec.get("source_ref")
+    attributes = spec.get("fields")
+    return (
+        age <= 180
+        and spec.get("verified") is True
+        and _nonblank(spec.get("verified_by"))
+        and spec.get("sku") == candidate.get("sku")
+        and _nonblank(spec.get("artifact_ref"))
+        and isinstance(source_ref, str)
+        and source_ref.startswith("https://")
+        and isinstance(attributes, dict)
+        and bool(attributes)
+        and all(_nonblank(key) and value is not None for key, value in attributes.items())
+    )
+
+
 def _valid_sample(candidate: dict[str, Any]) -> bool:
     sample = candidate.get("sample_inspection")
-    if not isinstance(sample, dict) or not _has_artifact(sample, "inspected_on"):
+    spec = candidate.get("product_spec")
+    if not isinstance(sample, dict) or not isinstance(spec, dict) or not _has_artifact(sample, "inspected_on"):
         return False
     inspected_on = date.fromisoformat(sample["inspected_on"])
     return (
@@ -93,6 +115,8 @@ def _valid_sample(candidate: dict[str, Any]) -> bool:
         and _nonblank(sample.get("inspector_id"))
         and sample.get("outcome") == "PASS"
         and sample.get("sku") == candidate.get("sku")
+        and sample.get("spec_match") is True
+        and sample.get("compared_to_spec_artifact_ref") == spec.get("artifact_ref")
     )
 
 
@@ -198,7 +222,7 @@ def _valid_order_cohort(cohort: Any, candidate_sku: Any) -> bool:
 def assess_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
     """Return a gate status, not a success probability or automatic investment approval."""
     missing_research: list[str] = []
-    if candidate.get("product_spec_verified") is not True or not _nonblank(candidate.get("sku")):
+    if not _nonblank(candidate.get("sku")) or not _valid_product_spec(candidate):
         missing_research.append(REQUIRED_RESEARCH_GATES["product_spec_verified"])
     if not _valid_sample(candidate):
         missing_research.append(REQUIRED_RESEARCH_GATES["sample_inspection"])
@@ -221,8 +245,23 @@ def assess_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(cohorts, list):
         cohorts = []
     valid_cohorts = [c for c in cohorts if _valid_order_cohort(c, candidate.get("sku"))]
-    cohort_ids = [c["cohort_id"] for c in valid_cohorts]
-    valid_cohorts = [c for i, c in enumerate(valid_cohorts) if c["cohort_id"] not in cohort_ids[:i]]
+    # Independent cohorts must have unique IDs and artifacts and non-overlapping date windows.
+    accepted_cohorts: list[dict[str, Any]] = []
+    seen_cohort_ids: set[str] = set()
+    seen_cohort_artifacts: set[str] = set()
+    for cohort in sorted(valid_cohorts, key=lambda item: (item["started_on"], item["ended_on"], item["cohort_id"])):
+        cohort_id = cohort["cohort_id"]
+        artifact_ref = cohort["artifact_ref"]
+        if cohort_id in seen_cohort_ids or artifact_ref in seen_cohort_artifacts:
+            continue
+        start_day = date.fromisoformat(cohort["started_on"])
+        end_day = date.fromisoformat(cohort["ended_on"])
+        if any(start_day <= date.fromisoformat(prior["ended_on"]) for prior in accepted_cohorts):
+            continue
+        accepted_cohorts.append(cohort)
+        seen_cohort_ids.add(cohort_id)
+        seen_cohort_artifacts.add(artifact_ref)
+    valid_cohorts = accepted_cohorts
     if not valid_cohorts:
         missing_test.append(REQUIRED_TEST_GATES["order_cohorts"])
 
