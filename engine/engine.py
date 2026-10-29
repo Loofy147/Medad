@@ -91,8 +91,9 @@ def assess_data_quality(x: Inputs) -> dict[str, Any]:
     components: list[float] = list(scores.values())
     components.extend(evidence_weights[v] for v in evidence.values())
     confidence_score = sum(components) / len(components) if components else 0.0
-    freshness = 1.0 if x.data_age_days is None else max(0.0, 1.0 - x.data_age_days / 180.0)
-    sample_factor = 0.5 if x.sample_size is None else min(1.0, x.sample_size / 100.0)
+    # Unknown freshness and sample size reduce, rather than improve, evidence quality.
+    freshness = 0.4 if x.data_age_days is None else max(0.0, 1.0 - x.data_age_days / 180.0)
+    sample_factor = 0.25 if x.sample_size is None else min(1.0, x.sample_size / 100.0)
     score = confidence_score * (0.75 + 0.25 * freshness) * (0.75 + 0.25 * sample_factor)
     expected_groups = {"unit_cost", "selling_price", "delivery_rate", "return_rate", "ad_cost"}
     observed_groups = set(scores) | set(evidence)
@@ -102,7 +103,10 @@ def assess_data_quality(x: Inputs) -> dict[str, Any]:
         if isinstance(detail, dict) and detail.get("url") and detail.get("observed_on")
         and detail.get("label") in VALID_EVIDENCE}
     provenance_coverage = len(expected_groups.intersection(provenance_groups)) / len(expected_groups)
-    grade = "HIGH" if score >= 0.8 and coverage >= 0.8 and provenance_coverage >= 0.8 else "MEDIUM" if score >= 0.55 and coverage >= 0.4 and provenance_coverage >= 0.4 else "LOW"
+    has_assumptions = any(v == "assumed" for v in evidence.values())
+    has_usable_sample = x.sample_size is not None and x.sample_size >= 30
+    has_freshness = x.data_age_days is not None and x.data_age_days <= 90
+    grade = "HIGH" if score >= 0.8 and coverage >= 0.8 and provenance_coverage >= 0.8 and has_usable_sample and has_freshness and not has_assumptions else "MEDIUM" if score >= 0.55 and coverage >= 0.4 and provenance_coverage >= 0.4 and has_usable_sample and has_freshness else "LOW"
     if provenance_coverage == 0:
         grade = "LOW"  # Numeric confidence without traceable sources cannot earn a higher evidence grade.
     warnings = []
