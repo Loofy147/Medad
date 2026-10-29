@@ -284,6 +284,16 @@ def validate_decision_run_report(report: Any) -> list[str]:
     if not isinstance(report, dict):
         return ["report must be an object"]
     errors: list[str] = []
+    report_fields = {
+        "schema_version", "run_manifest", "decision", "economics", "claims", "gates",
+        "opportunity", "sensitivity", "instant_events", "provenance_summary", "limitations",
+    }
+    unknown_report_fields = sorted(set(report) - report_fields)
+    if unknown_report_fields:
+        errors.append(f"unknown decision report fields: {unknown_report_fields}")
+    missing_report_fields = sorted(report_fields - set(report))
+    if missing_report_fields:
+        errors.append(f"missing decision report fields: {missing_report_fields}")
     if report.get("schema_version") != SCHEMA_VERSION:
         errors.append(f"schema_version must be {SCHEMA_VERSION}")
     manifest = report.get("run_manifest")
@@ -296,11 +306,27 @@ def validate_decision_run_report(report: Any) -> list[str]:
     if not isinstance(provenance, dict):
         return errors + ["provenance_summary must be an object"]
 
-    for field in ("run_id", "case_id", "observed_at", "code_revision", "runtime", "input_hash", "report_hash", "mode"):
+    manifest_fields = {
+        "run_id", "case_id", "created_at", "observed_at", "code_revision",
+        "run_note", "runtime", "mode", "input_hash", "report_hash",
+    }
+    if set(manifest) != manifest_fields:
+        errors.append(
+            f"run_manifest fields must match schema; missing={sorted(manifest_fields - set(manifest))}, "
+            f"unknown={sorted(set(manifest) - manifest_fields)}"
+        )
+    for field in ("run_id", "case_id", "created_at", "observed_at", "code_revision", "runtime", "input_hash", "report_hash", "mode"):
         if not isinstance(manifest.get(field), str) or not manifest[field].strip():
             errors.append(f"run_manifest.{field} is required")
     if not isinstance(manifest.get("run_note", ""), str):
         errors.append("run_manifest.run_note must be a string")
+    if isinstance(manifest.get("created_at"), str):
+        try:
+            created_dt = _aware_timestamp(manifest["created_at"], "run_manifest.created_at")
+            if created_dt > datetime.now(timezone.utc):
+                errors.append("run_manifest.created_at cannot be in the future")
+        except ValueError as exc:
+            errors.append(str(exc))
     if isinstance(manifest.get("observed_at"), str):
         try:
             observed_dt = _aware_timestamp(manifest["observed_at"], "run_manifest.observed_at")
@@ -317,6 +343,15 @@ def validate_decision_run_report(report: Any) -> list[str]:
             or any(char not in "0123456789abcdef" for char in digest.lower())
         ):
             errors.append(f"run_manifest.{field} must be a 64-character hexadecimal digest")
+    decision_fields = {
+        "stage", "economics_status", "gate_eligible", "critical_claim_blockers",
+        "next_action", "authorization_granted",
+    }
+    if set(decision) != decision_fields:
+        errors.append(
+            f"decision fields must match schema; missing={sorted(decision_fields - set(decision))}, "
+            f"unknown={sorted(set(decision) - decision_fields)}"
+        )
     if decision.get("authorization_granted") is not False:
         errors.append("decision.authorization_granted must be false")
     if not isinstance(decision.get("stage"), str) or not decision["stage"]:
@@ -328,11 +363,28 @@ def validate_decision_run_report(report: Any) -> list[str]:
     if not isinstance(decision.get("critical_claim_blockers"), list):
         errors.append("decision.critical_claim_blockers must be an array")
 
+    provenance_fields = {
+        "evidence_record_count", "evidence_manifest", "claim_count", "gate_count", "source_urls",
+    }
+    if set(provenance) != provenance_fields:
+        errors.append(
+            f"provenance_summary fields must match schema; missing={sorted(provenance_fields - set(provenance))}, "
+            f"unknown={sorted(set(provenance) - provenance_fields)}"
+        )
+    for field in ("claim_count", "gate_count"):
+        value = provenance.get(field)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            errors.append(f"provenance_summary.{field} must be a non-negative integer")
+    if not isinstance(provenance.get("source_urls"), list) or any(
+        not isinstance(url, str) for url in provenance.get("source_urls", [])
+    ):
+        errors.append("provenance_summary.source_urls must be an array of strings")
     evidence_manifest = provenance.get("evidence_manifest")
     if not isinstance(evidence_manifest, list):
         errors.append("provenance_summary.evidence_manifest must be an array")
         evidence_manifest = []
     seen_ids: set[str] = set()
+    ordered_ids: list[str] = []
     for index, item in enumerate(evidence_manifest):
         if not isinstance(item, dict):
             errors.append(f"evidence_manifest[{index}] must be an object")
@@ -345,23 +397,36 @@ def validate_decision_run_report(report: Any) -> list[str]:
             errors.append(f"evidence_manifest contains duplicate evidence_id {evidence_id!r}")
         else:
             seen_ids.add(evidence_id)
+            ordered_ids.append(evidence_id)
+        if set(item) != {"evidence_id", "content_hash"}:
+            errors.append(f"evidence_manifest[{index}] fields must be evidence_id and content_hash")
         if not isinstance(digest, str) or len(digest) != 64 or any(
             char not in "0123456789abcdef" for char in digest.lower()
         ):
             errors.append(f"evidence_manifest[{index}].content_hash must be a SHA-256 digest")
 
+    if ordered_ids != sorted(ordered_ids):
+        errors.append("provenance_summary.evidence_manifest must be sorted by evidence_id")
     count = provenance.get("evidence_record_count")
     if isinstance(count, bool) or not isinstance(count, int) or count != len(evidence_manifest):
         errors.append("provenance_summary.evidence_record_count must match evidence_manifest length")
 
-    required_outputs = ("economics", "claims", "gates", "instant_events")
+    required_outputs = ("economics", "claims", "gates", "instant_events", "limitations")
     for field in required_outputs:
         if field not in report:
             errors.append(f"{field} is required")
+    if not isinstance(report.get("economics"), dict):
+        errors.append("economics must be an object")
     if not isinstance(report.get("claims"), list):
         errors.append("claims must be an array")
     if not isinstance(report.get("instant_events"), list):
         errors.append("instant_events must be an array")
+    if not isinstance(report.get("limitations"), list) or any(
+        not isinstance(item, str) for item in report.get("limitations", [])
+    ):
+        errors.append("limitations must be an array of strings")
+    if report.get("sensitivity") is not None and not isinstance(report.get("sensitivity"), dict):
+        errors.append("sensitivity must be an object or null")
     gates = report.get("gates")
     if not isinstance(gates, dict) or not isinstance(gates.get("eligible_for_next_stage"), bool):
         errors.append("gates.eligible_for_next_stage must be boolean")
