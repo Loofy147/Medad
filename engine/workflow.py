@@ -64,7 +64,7 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
     """Return an analysis packet. It makes no external changes and never authorizes spend."""
     if not isinstance(payload, dict):
         raise ValueError("run payload must be an object")
-    allowed_top_level = {"schema_version", "run_id", "case_id", "observed_at", "code_revision", "inputs", "evidence_records", "claims", "gates", "candidate", "options", "subject_id"}
+    allowed_top_level = {"schema_version", "run_id", "case_id", "observed_at", "code_revision", "run_note", "inputs", "evidence_records", "claims", "gates", "candidate", "options", "subject_id"}
     unknown_top_level = sorted(set(payload) - allowed_top_level)
     if unknown_top_level:
         raise ValueError(f"unknown run payload fields: {unknown_top_level}")
@@ -113,6 +113,9 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
     code_revision = payload.get("code_revision")
     if not isinstance(code_revision, str) or not code_revision.strip():
         raise ValueError("code_revision is required for a reproducible decision run")
+    run_note = payload.get("run_note", "")
+    if not isinstance(run_note, str):
+        raise ValueError("run_note must be a string")
     unknown_options = sorted(set(options) - {"sensitivity"})
     if unknown_options:
         raise ValueError(f"unknown run options: {unknown_options}")
@@ -130,6 +133,7 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
         "candidate": candidate,
         "options": options,
         "code_revision": code_revision,
+        "run_note": run_note,
     }
     input_hash = sha256(_canonical(run_basis)).hexdigest()
 
@@ -199,6 +203,7 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
             "created_at": created_at,
             "observed_at": observed_dt.isoformat(),
             "code_revision": code_revision,
+            "run_note": run_note,
             "runtime": "python-stdlib-local",
             "mode": "ANALYSIS_ONLY_NO_EXTERNAL_SIDE_EFFECTS",
             "input_hash": input_hash,
