@@ -143,6 +143,18 @@ class InstantEventTests(unittest.TestCase):
         self.assertTrue(all(event["state"] == "OPEN" for event in events))
         self.assertTrue(all(event["idempotency_key"] for event in events))
 
+    def test_instant_event_contains_auditable_trigger_observation_and_recovery_fields(self):
+        events = generate_instant_events(evaluate(Inputs()), subject_id="auditable-candidate")
+        event = next(x for x in events if x["event_type"] == "EVIDENCE_GAP")
+        self.assertEqual(event["context"]["mode"], "LOCAL_ECONOMICS_SNAPSHOT")
+        self.assertIn("data_quality_grade", event["observations"])
+        self.assertIn("LOW", event["trigger_rule"])
+        self.assertEqual(event["state_delta"], {"from": None, "to": "OPEN"})
+        self.assertIn("append-only-history", event["invariants"])
+        self.assertIn("RESOLVED", event["recovery_actions"])
+        self.assertEqual(event["propagation"]["mode"], "LOCAL_ONLY")
+        self.assertEqual(event["action_kind"], "RECOMMENDATION_ONLY")
+
     def test_event_replay_is_idempotent(self):
         events = generate_instant_events(evaluate(Inputs()), subject_id="candidate-demo")
         with tempfile.TemporaryDirectory() as directory:
