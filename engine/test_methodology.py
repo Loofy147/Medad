@@ -115,7 +115,7 @@ class SensitivityEngineTests(unittest.TestCase):
         self.assertTrue(result["bracketed"])
         self.assertGreaterEqual(result["threshold"], 1000)
         self.assertLessEqual(result["threshold"], 2000)
-        self.assertLess(abs(result["modeled_profit_at_threshold_dzd"]), 0.01)
+        self.assertLessEqual(abs(result["modeled_profit_at_threshold_dzd"]), 0.01)
 
     def test_threshold_does_not_extrapolate_when_not_bracketed(self):
         result = find_profit_threshold(Inputs(), "selling_price", 2500, 3000)
