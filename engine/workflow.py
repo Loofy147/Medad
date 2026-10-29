@@ -7,7 +7,7 @@ from hashlib import sha256
 from typing import Any
 import json
 
-from decision_kernel import assess_claim, assess_gates
+from decision_kernel import assess_claim, assess_gates, validate_evidence_record
 from engine import Inputs, evaluate
 from instant import generate_instant_events
 from opportunity import assess_candidate
@@ -82,6 +82,15 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
 
     inputs = _parse_inputs(payload.get("inputs"))
     evidence_records = _validate_records(payload.get("evidence_records", []), "evidence_records")
+    evidence_ids: set[str] = set()
+    for index, record in enumerate(evidence_records):
+        record_id = record.get("evidence_id")
+        if not isinstance(record_id, str) or not record_id.strip() or record_id in evidence_ids:
+            raise ValueError(f"evidence_records[{index}] has a missing or duplicate evidence_id")
+        errors = validate_evidence_record(record)
+        if errors:
+            raise ValueError(f"evidence_records[{index}] violates the evidence contract: {errors}")
+        evidence_ids.add(record_id)
     claims = _validate_records(payload.get("claims", []), "claims")
     gates = _validate_records(payload.get("gates", []), "gates")
     candidate = payload.get("candidate")
@@ -144,6 +153,8 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
         stage = "BLOCKED_GATES"
     elif opportunity_result is not None and opportunity_result["stage"] != "SCALE_REVIEW_CANDIDATE":
         stage = f"BLOCKED_OPPORTUNITY_{opportunity_result['stage']}"
+    elif opportunity_result is not None:
+        stage = "ELIGIBLE_FOR_HUMAN_SCALE_REVIEW"
     else:
         # TEST_CANDIDATE is a permission for a bounded experiment only.
         stage = "ELIGIBLE_FOR_BOUNDED_TEST"
