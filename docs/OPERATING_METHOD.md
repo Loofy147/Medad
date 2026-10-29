@@ -133,6 +133,10 @@ For engine changes, include:
 - mutation test that removes the guard expected to block a bad decision;
 - exact regression test for each previously found failure.
 
+## Synthetic template
+
+`docs/examples/decision-run.template.json` is an executable schema example. All numeric inputs are synthetic; evidence is intentionally marked assumed and the gate list is empty, so the expected result is blocked/unverified. Replace the run ID, code revision, timestamps, every required input and evidence record before using it for a real case.
+
 ## Local CLI examples
 
 Input files are local JSON and must be reviewed before sharing. From the engine directory:
@@ -143,9 +147,11 @@ Input files are local JSON and must be reviewed before sharing. From the engine 
 - `python cli.py claim --input claim-and-evidence.json` — validate a claim against linked records.
 - `python cli.py gates --input gates-and-evidence.json` — require a supplied evidence registry plus reviewer, date and reason for PASS.
 - `python cli.py continuation --input continuation.json` — check a handoff contract.
+- `python cli.py workflow --input decision-run.json` — generate one analysis-only decision packet; required economics fields must be explicit and missing gates/critical claims block advancement.
+- `python cli.py workflow --input decision-run.json --run-journal .medad/decision-runs.jsonl` — opt into an append-only local run journal. Repeating the same run ID and input/report identity replays the prior record; reusing a run ID with changed inputs fails closed.
 - `python cli.py opportunity-audit --snapshot ../data/research_snapshot_2026-10-29.json` — inspect the dated sourcing registry.
 
-The event journal directory `.medad/` is ignored by version control. It is a local development store, not a secure shared database.
+The event/run journal directory `.medad/` is ignored by version control. The run journal detects accidental record changes through a checksum, but it is not a digital signature, tamper-proof log, backup system, or secure shared database. Both local journals use per-process locking; do not share one JSONL file across writers or hosts.
 
 ## Current implementation boundary
 
