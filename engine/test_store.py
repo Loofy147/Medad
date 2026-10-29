@@ -13,6 +13,7 @@ from store import (
     StoreConflict,
 )
 from workflow import build_decision_run
+from artifact_store import LocalArtifactByteStore
 
 
 def actor(subject: str, *roles: str) -> Actor:
@@ -437,6 +438,45 @@ class SQLiteStoreTests(unittest.TestCase):
                 )
         finally:
             restricted.close()
+
+
+    def test_retained_artifact_bytes_are_rehashed_and_audited(self):
+        content = b"evidence artifact: exact retained bytes"
+        byte_store = LocalArtifactByteStore(self.root / "artifact-blobs")
+        blob = byte_store.put_bytes(content)
+        self.store.put_record(
+            self.analyst,
+            "artifacts",
+            "artifact-verified",
+            {"artifact_ref": f"sha256:{blob['sha256']}", "sha256": blob["sha256"]},
+            reason="Register artifact digest",
+        )
+
+        verified = self.store.verify_retained_artifact(
+            self.auditor, "artifact-verified", byte_store,
+            reason="Verify retained source artifact bytes",
+        )
+        self.assertTrue(verified["verified"])
+        self.assertEqual(verified["actual_sha256"], blob["sha256"])
+        self.assertEqual(verified["byte_length"], len(content))
+
+        path = self.root / "artifact-blobs" / "sha256" / blob["sha256"][:2] / blob["sha256"]
+        path.write_bytes(b"tampered retained content")
+        failed = self.store.verify_retained_artifact(
+            self.auditor, "artifact-verified", byte_store,
+            reason="Detect artifact corruption after retention",
+        )
+        self.assertFalse(failed["verified"])
+        self.assertEqual(failed["failure"], "RETAINED_BYTES_UNAVAILABLE_OR_CORRUPT")
+        events = self.store.audit_events(self.auditor)
+        self.assertTrue(any(
+            event["action"] == "audit:verify_artifact" and event["outcome"] == "VERIFIED"
+            for event in events
+        ))
+        self.assertTrue(any(
+            event["action"] == "audit:verify_artifact" and event["outcome"] == "FAILED"
+            for event in events
+        ))
 
 
 if __name__ == "__main__":
