@@ -146,7 +146,8 @@ def assess_claim(claim: dict[str, Any], evidence_records: list[dict[str, Any]]) 
     elif contradictors:
         effective = "CONTRADICTED"
     elif declared == "ESTABLISHED":
-        independent = {item["independence_key"] for item in supporters}
+        strong_supporters = [item for item in supporters if item["evidence_label"] in {"observed", "quoted"}]
+        independent = {item["independence_key"] for item in strong_supporters}
         if len(independent) >= 2:
             effective = "ESTABLISHED"
         else:
@@ -201,11 +202,40 @@ def assess_claim(claim: dict[str, Any], evidence_records: list[dict[str, Any]]) 
     }
 
 
-def assess_gates(gates: list[dict[str, Any]]) -> dict[str, Any]:
-    """Only explicit PASS values satisfy a gate; missing and unknown remain blocking."""
+def assess_gates(
+    gates: list[dict[str, Any]],
+    evidence_records: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Only explicit, reviewed PASS values with valid evidence references satisfy a gate.
+
+    If the caller does not provide the evidence records, no gate can be confirmed as
+    passed from references alone. This fails closed instead of trusting arbitrary IDs.
+    """
     errors: list[str] = []
     seen: set[str] = set()
-    normalized = []
+    normalized: list[dict[str, Any]] = []
+    record_index: dict[str, dict[str, Any]] = {}
+
+    if evidence_records is not None and not isinstance(evidence_records, list):
+        errors.append("evidence_records must be an array")
+        evidence_records = []
+    for index, record in enumerate(evidence_records or []):
+        if not isinstance(record, dict):
+            errors.append(f"Evidence record at index {index} must be an object")
+            continue
+        record_id = record.get("evidence_id")
+        if not _text(record_id) or record_id in record_index:
+            errors.append(f"Evidence record ID is missing or duplicated: {record_id!r}")
+            continue
+        record_errors = validate_evidence_record(record)
+        if record_errors:
+            errors.append(f"Evidence record {record_id!r} invalid: {record_errors}")
+            continue
+        record_index[record_id] = record
+
+    if not isinstance(gates, list):
+        errors.append("gates must be an array")
+        gates = []
     for gate in gates:
         if not isinstance(gate, dict):
             errors.append("Every gate must be an object")
@@ -215,20 +245,51 @@ def assess_gates(gates: list[dict[str, Any]]) -> dict[str, Any]:
         if not _text(gate_id):
             errors.append(f"Gate ID is missing or invalid: {gate_id!r}")
         elif gate_id in seen:
-            errors.append(f"Gate ID is missing or duplicated: {gate_id!r}")
+            errors.append(f"Gate ID is duplicated: {gate_id!r}")
         else:
             seen.add(gate_id)
-        if state not in GATE_STATES:
+        if not isinstance(state, str) or state not in GATE_STATES:
             errors.append(f"Invalid gate state for {gate_id!r}: {state!r}")
             state = "UNKNOWN"
-        evidence_refs = gate.get("evidence_refs", [])
-        if not isinstance(evidence_refs, list):
-            errors.append(f"evidence_refs for {gate_id!r} must be an array")
-            evidence_refs = []
-        if state == "PASS" and not evidence_refs:
-            errors.append(f"PASS gate {gate_id!r} requires at least one evidence reference")
-            state = "UNKNOWN"
-        normalized.append({"gate_id": gate_id, "state": state, "evidence_refs": evidence_refs})
+
+        refs = gate.get("evidence_refs", [])
+        if not isinstance(refs, list) or any(not _text(ref) for ref in refs):
+            errors.append(f"evidence_refs for {gate_id!r} must be an array of non-empty strings")
+            refs = []
+        elif len(refs) != len(set(refs)):
+            errors.append(f"evidence_refs for {gate_id!r} must not contain duplicates")
+            refs = []
+
+        if state == "PASS":
+            if not refs:
+                errors.append(f"PASS gate {gate_id!r} requires at least one evidence reference")
+                state = "UNKNOWN"
+            elif evidence_records is None:
+                errors.append(f"PASS gate {gate_id!r} cannot be verified without the evidence records")
+                state = "UNKNOWN"
+            elif any(ref not in record_index for ref in refs):
+                unknown_refs = [ref for ref in refs if ref not in record_index]
+                errors.append(f"PASS gate {gate_id!r} references invalid or unknown evidence: {unknown_refs}")
+                state = "UNKNOWN"
+            if not _text(gate.get("reviewed_by")) or not _date(gate.get("reviewed_at")) or not _text(gate.get("reason")):
+                errors.append(f"PASS gate {gate_id!r} requires reviewed_by, reviewed_at and reason")
+                state = "UNKNOWN"
+        elif state == "NOT_APPLICABLE":
+            if not _text(gate.get("reviewed_by")) or not _date(gate.get("reviewed_at")) or not _text(gate.get("reason")):
+                errors.append(f"NOT_APPLICABLE gate {gate_id!r} requires reviewer, date and rationale")
+                state = "UNKNOWN"
+        elif state == "FAIL" and not _text(gate.get("reason")):
+            errors.append(f"FAIL gate {gate_id!r} requires a reason")
+
+        normalized.append({
+            "gate_id": gate_id,
+            "state": state,
+            "evidence_refs": refs,
+            "reviewed_by": gate.get("reviewed_by"),
+            "reviewed_at": gate.get("reviewed_at"),
+            "reason": gate.get("reason"),
+        })
+
     blockers = [item["gate_id"] for item in normalized if item["state"] not in {"PASS", "NOT_APPLICABLE"}]
     eligible = not errors and not blockers and bool(normalized)
     return {
