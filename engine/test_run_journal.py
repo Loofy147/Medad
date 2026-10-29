@@ -65,6 +65,21 @@ class DecisionRunJournalTests(unittest.TestCase):
                 journal.append(report)
             self.assertEqual(journal.list_runs(), [])
 
+    def test_report_hash_covers_decision_manifest_and_provenance_metadata(self):
+        mutations = (
+            ("decision details", lambda report: report["decision"].update({"next_action": "altered"})),
+            ("code revision", lambda report: report["run_manifest"].update({"code_revision": "forged-revision"})),
+            ("provenance", lambda report: report["provenance_summary"]["source_urls"].append("https://forged.example/source")),
+        )
+        for label, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                report = sample_report(f"metadata-integrity-{label.replace(' ', '-')}")
+                mutate(report)
+                journal = DecisionRunJournal(Path(directory) / "runs.jsonl")
+                with self.assertRaisesRegex(ValueError, "report_hash"):
+                    journal.append(report)
+                self.assertEqual(journal.list_runs(), [])
+
     def test_journal_rejects_report_claiming_authorization(self):
         report = sample_report("unauthorized-run")
         report["decision"]["authorization_granted"] = True
