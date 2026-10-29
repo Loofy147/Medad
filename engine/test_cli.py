@@ -3,6 +3,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 from cli import parse_inputs
@@ -78,6 +79,28 @@ class CliTests(unittest.TestCase):
             self.assertEqual(second_payload["replayed_count"], first_payload["generated_count"])
             rows = [line for line in journal_path.read_text(encoding="utf-8").splitlines() if line.strip()]
             self.assertEqual(len(rows), first_payload["generated_count"])
+
+    def test_workflow_command_returns_a_decision_packet_without_implicit_authorization(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "run.json"
+            payload = {
+                "schema_version": "medad.decision-run.v1",
+                "run_id": "cli-run-test",
+                "case_id": "cli-generic-case",
+                "observed_at": datetime.now(timezone.utc).isoformat(),
+                "inputs": SYNTHETIC_INPUTS,
+            }
+            input_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, str(ENGINE_DIR / "cli.py"), "workflow", "--input", str(input_path)],
+                cwd=ENGINE_DIR, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(result.stdout)
+            self.assertEqual(report["schema_version"], "medad.decision-run.v1")
+            self.assertEqual(report["decision"]["stage"], "BLOCKED_UNVERIFIED_ECONOMICS")
+            self.assertFalse(report["decision"]["authorization_granted"])
+            self.assertEqual(report["run_manifest"]["mode"], "ANALYSIS_ONLY_NO_EXTERNAL_SIDE_EFFECTS")
 
     def test_sensitivity_command_returns_limitation_and_factors(self):
         with tempfile.TemporaryDirectory() as directory:
