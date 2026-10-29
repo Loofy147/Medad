@@ -139,7 +139,7 @@ def find_profit_threshold(
             hi = mid
     threshold = (lo + hi) / 2
     return {
-        "field": field, "threshold": round(threshold, 6), "bracketed": True,
+        "field": field, "threshold": round(threshold, 9), "bracketed": True,
         "low": low, "high": high, "target_profit_dzd": target_profit_dzd,
         "modeled_profit_at_threshold_dzd": round(score(threshold) + target_profit_dzd, 4),
         "meaning": "Modeled input threshold within the requested bracket, conditional on all other inputs.",
