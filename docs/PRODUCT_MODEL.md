@@ -57,6 +57,11 @@ The current readiness evaluator deliberately ignores old boolean-only assertions
 
 `artifact_ref` is an opaque traceable reference (for example an internal document ID or private object reference); this repository does not implement upload/storage of those artifacts yet. A valid reference and well-formed record are necessary but do not independently prove authenticity. Human review is still required, and a scale-review stage is not investment approval.
 
+Freshness limits in the current evaluator: sample inspection must be no older than 180 days; supplier quotes and courier terms must be no older than 90 days and unexpired; campaign evidence and order cohorts must be no older than 90 days. The quote record must match the candidate's exact SKU and come from a distinct verified seller. These are conservative implementation gates, not claims that older evidence becomes false; they require revalidation before a decision.
+
+For a positive modeled result, the unit-economics engine returns `UNVERIFIED_ECONOMICS` when provenance/sample/freshness is unknown or low. `TEST_CANDIDATE` requires `HIGH` evidence quality and acceptable delivery/return thresholds, and only permits a bounded test. A negative result remains explicitly labeled as a loss under the current inputs, not as an absolute statement about the SKU.
+
+
 ## Decision gates
 
 1. Research: capture product source, supplier quote, comparable sale prices and sample proof.
