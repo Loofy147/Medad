@@ -22,6 +22,8 @@ class DecisionRunJournalTests(unittest.TestCase):
     def test_append_and_replay_are_idempotent_even_if_run_created_at_differs(self):
         report_a = sample_report("journal-run-1")
         report_b = sample_report("journal-run-1")
+        # Report identity excludes creation time by design; simulate replay at a later clock tick.
+        report_b["run_manifest"]["created_at"] = "2026-10-29T12:59:59+00:00"
         self.assertNotEqual(report_a["run_manifest"]["created_at"], report_b["run_manifest"]["created_at"])
         self.assertEqual(report_a["run_manifest"]["report_hash"], report_b["run_manifest"]["report_hash"])
 
