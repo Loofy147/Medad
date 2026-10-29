@@ -23,7 +23,7 @@ Other costs are explicitly separated: packaging per placed order, outbound couri
 
 ## Break-even
 
-Contribution before ads is revenue and collected delivery fees minus the modeled variable costs other than ads and fixed costs. Break-even ad spend is `contribution_before_ads - other_fixed_costs` only when this value is strictly positive. If contribution before ads cannot cover fixed costs, break-even spend/CAC are `null` and the product is not viable before ads; reporting zero would falsely imply that zero ad spend solves the loss. Break-even CAC is reported per placed order and per retained order only when break-even is possible and denominators exist. A zero-volume case returns `null` for undefined CAC rather than inventing a zero.
+Contribution before ads is revenue and collected delivery fees minus the modeled variable costs other than ads and fixed costs. Break-even ad spend is `contribution_before_ads - other_fixed_costs` when this value is non-negative. If it is exactly zero, the model is at break-even with zero ad spend. If it is negative, break-even spend/CAC are `null` because no ad budget can repair a loss that exists before advertising. Break-even CAC is reported per placed order and per retained order only when break-even is possible and denominators exist. A zero-volume case returns `null` for undefined CAC rather than inventing a zero.
 
 ## Scenario analysis
 
