@@ -163,8 +163,8 @@ def evaluate(x: Inputs) -> dict[str, Any]:
     )
     profit = contribution_before_ads - x.ad_spend - x.other_fixed_costs
     break_even_surplus = contribution_before_ads - x.other_fixed_costs
-    # No ad budget can break even when the product loses money before ads are counted.
-    break_even_ad_spend = break_even_surplus if break_even_surplus > 0 else None
+    # Zero is a valid break-even budget only when contribution exactly covers fixed costs.
+    break_even_ad_spend = break_even_surplus if break_even_surplus >= 0 else None
     cac_per_placed = x.ad_spend / placed if placed else None
     cac_per_retained = x.ad_spend / retained if retained else None
     break_even_cac_per_placed = break_even_ad_spend / placed if placed and break_even_ad_spend is not None else None
