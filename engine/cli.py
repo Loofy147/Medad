@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import fields
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 import json
@@ -15,6 +16,7 @@ from decision_kernel import assess_claim, assess_gates, validate_continuation_co
 from opportunity import load_snapshot
 from workflow import build_decision_run
 from run_journal import DecisionRunJournal
+from store import Actor, SQLiteStore
 
 
 def read_json(path: str | Path) -> dict[str, Any]:
@@ -58,9 +60,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--snapshot", help="Research snapshot JSON for opportunity-audit")
     parser.add_argument("--journal", default=".medad/instant-events.jsonl", help="Local JSONL event journal for instant")
     parser.add_argument("--run-journal", help="Optional append-only JSONL decision-run journal; only used by workflow")
+    parser.add_argument("--store-db", help="Opt-in local SQLite persistence for workflow report plus evidence; not a shared database")
     args = parser.parse_args(argv)
 
     try:
+        if args.store_db and args.command != "workflow":
+            raise ValueError("--store-db is available only for workflow")
         if args.command == "opportunity-audit":
             snapshot_path = args.snapshot or args.input
             if not snapshot_path:
@@ -79,9 +84,39 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError(f"{args.command} requires --input")
             payload = read_json(args.input)
             if args.command == "workflow":
-                output = build_decision_run(payload)
+                report = build_decision_run(payload)
+                output = report
+                if args.store_db:
+                    evidence_records = payload.get("evidence_records", [])
+                    if not isinstance(evidence_records, list):
+                        raise ValueError("evidence_records must be an array when --store-db is used")
+                    actor = Actor(
+                        subject_id="local-cli",
+                        issuer="local-process",
+                        roles=("analyst",),
+                        authenticated_at=datetime.now(timezone.utc).isoformat(),
+                        authn_method="local-cli-no-authentication-proof",
+                    )
+                    store = SQLiteStore(args.store_db)
+                    try:
+                        stored = store.commit_run_packet(
+                            actor, report, evidence_records,
+                            reason="Explicit local CLI persistence request",
+                        )
+                    finally:
+                        store.close()
+                    output = dict(report)
+                    output["storage_result"] = {
+                        "inserted": stored["inserted"],
+                        "reason": stored["reason"],
+                        "run_id": stored["run"]["record_id"],
+                        "evidence_count": len(stored["evidence"]),
+                        "store_kind": "LOCAL_SQLITE_SINGLE_HOST",
+                        "database_path": str(Path(args.store_db)),
+                        "identity_note": "The local CLI actor is not authenticated; do not expose this path as a remote authorization boundary.",
+                    }
                 if args.run_journal:
-                    stored = DecisionRunJournal(args.run_journal).append(output)
+                    stored = DecisionRunJournal(args.run_journal).append(report)
                     output = dict(output)
                     output["journal_result"] = {
                         "inserted": stored["inserted"],
