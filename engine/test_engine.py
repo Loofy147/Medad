@@ -184,8 +184,12 @@ class OpportunityGateTests(unittest.TestCase):
         ]
         return {
             "id": "test-candidate", "sku": "SKU-1", "product_spec_verified": True,
+            "product_spec": {"artifact_ref": "private://evidence/spec", "source_ref": "https://supplier.example/spec/SKU-1",
+                             "verified_on": recent, "verified_by": "reviewer-a", "verified": True, "sku": "SKU-1",
+                             "fields": {"model": "SKU-1", "dimensions": "20x10x5 cm", "material": "ABS"}},
             "sample_inspection": {"artifact_ref": "private://evidence/sample", "inspected_on": recent,
-                                  "inspector_id": "reviewer-a", "outcome": "PASS", "sku": "SKU-1"},
+                                  "inspector_id": "reviewer-a", "outcome": "PASS", "sku": "SKU-1",
+                                  "spec_match": True, "compared_to_spec_artifact_ref": "private://evidence/spec"},
             "supplier_quotes": quotes,
             "landed_cost": {"artifact_ref": "private://evidence/landed-cost", "calculated_on": recent,
                             "verified": True, "reviewed_by": "reviewer-a",
@@ -288,6 +292,20 @@ class OpportunityGateTests(unittest.TestCase):
     def test_single_cohort_needs_repeatability_before_scale_review(self):
         from opportunity import assess_candidate
         candidate = self.add_test_evidence(self.research_ready_candidate(), cohort_count=1)
+        result = assess_candidate(candidate)
+        self.assertEqual(result["stage"], "TESTED_SINGLE_COHORT")
+        self.assertEqual(result["valid_reconciled_cohort_count"], 1)
+
+    def test_overlapping_or_reused_cohort_artifacts_do_not_count_as_repeatability(self):
+        from opportunity import assess_candidate
+        candidate = self.add_test_evidence(self.research_ready_candidate(), cohort_count=2)
+        candidate["order_cohorts"][1]["started_on"] = candidate["order_cohorts"][0]["started_on"]
+        result = assess_candidate(candidate)
+        self.assertEqual(result["stage"], "TESTED_SINGLE_COHORT")
+        self.assertEqual(result["valid_reconciled_cohort_count"], 1)
+
+        candidate = self.add_test_evidence(self.research_ready_candidate(), cohort_count=2)
+        candidate["order_cohorts"][1]["artifact_ref"] = candidate["order_cohorts"][0]["artifact_ref"]
         result = assess_candidate(candidate)
         self.assertEqual(result["stage"], "TESTED_SINGLE_COHORT")
         self.assertEqual(result["valid_reconciled_cohort_count"], 1)
