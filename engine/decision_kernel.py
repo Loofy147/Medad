@@ -32,6 +32,75 @@ def _date(value: Any) -> bool:
     return parsed <= date.today()
 
 
+def _validate_scope(scope: Any, *, name: str) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(scope, dict):
+        return [f"{name} must be an object"]
+    for required in ("subject", "metric"):
+        if not _text(scope.get(required)):
+            errors.append(f"{name}.{required} is required")
+    for key, value in scope.items():
+        if not isinstance(key, str) or not key.strip():
+            errors.append(f"{name} keys must be non-empty strings")
+        if not _text(value):
+            errors.append(f"{name}.{key} must be a non-empty string")
+    for field in ("period_start", "period_end"):
+        if field in scope and not _date(scope[field]):
+            # Claim/evidence applicability can include prospective windows; require valid ISO dates,
+            # but do not classify a future period as an invalid date at the scope layer.
+            value = scope[field]
+            try:
+                parsed = date.fromisoformat(value) if isinstance(value, str) else None
+            except ValueError:
+                parsed = None
+            if parsed is None:
+                errors.append(f"{name}.{field} must be a valid YYYY-MM-DD date")
+    if ("period_start" in scope) != ("period_end" in scope):
+        errors.append(f"{name} must provide both period_start and period_end")
+    if "period_start" in scope and "period_end" in scope:
+        if _text(scope.get("period_start")) and _text(scope.get("period_end")):
+            try:
+                if date.fromisoformat(scope["period_start"]) > date.fromisoformat(scope["period_end"]):
+                    errors.append(f"{name}.period_start must not be after period_end")
+            except ValueError:
+                pass
+    for field in ("subject", "metric", "currency", "sku"):
+        if scope.get(field) == "*":
+            errors.append(f"{name}.{field} cannot use a wildcard")
+    return errors
+
+
+def _scope_mismatch(claim_scope: dict[str, Any], evidence_scope: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    wildcard_dimensions = {"geography", "population", "wilaya"}
+    for field, expected in claim_scope.items():
+        if field in {"period_start", "period_end"}:
+            continue
+        actual = evidence_scope.get(field)
+        if actual is None:
+            errors.append(f"evidence scope is missing claim dimension {field!r}")
+        elif actual == "*" and field in wildcard_dimensions:
+            continue
+        elif actual != expected:
+            errors.append(f"scope mismatch for {field!r}: claim={expected!r}, evidence={actual!r}")
+    if "period_start" in claim_scope or "period_end" in claim_scope:
+        if "period_start" not in claim_scope or "period_end" not in claim_scope:
+            errors.append("claim scope must provide both period_start and period_end")
+        elif "period_start" not in evidence_scope or "period_end" not in evidence_scope:
+            errors.append("evidence scope must bound the claim period")
+        else:
+            try:
+                claim_start = date.fromisoformat(claim_scope["period_start"])
+                claim_end = date.fromisoformat(claim_scope["period_end"])
+                evidence_start = date.fromisoformat(evidence_scope["period_start"])
+                evidence_end = date.fromisoformat(evidence_scope["period_end"])
+                if evidence_start > claim_start or evidence_end < claim_end:
+                    errors.append("evidence scope period does not cover the full claim period")
+            except (TypeError, ValueError):
+                errors.append("claim/evidence period scope contains an invalid date")
+    return errors
+
+
 def validate_evidence_record(record: dict[str, Any]) -> list[str]:
     """Return contract violations; an empty list means structurally valid, not proven true."""
     if not isinstance(record, dict):
@@ -49,6 +118,7 @@ def validate_evidence_record(record: dict[str, Any]) -> list[str]:
     if not _date(record.get("observed_on")):
         errors.append("observed_on must be a valid non-future YYYY-MM-DD date")
 
+    errors.extend(_validate_scope(record.get("scope"), name="evidence.scope"))
     if record.get("source_kind") == "url":
         if not isinstance(record.get("source_ref"), str) or not record["source_ref"].startswith("https://"):
             errors.append("URL evidence requires an HTTPS source_ref")
@@ -88,6 +158,7 @@ def validate_claim(claim: dict[str, Any], evidence_records: list[dict[str, Any]]
             errors.append(f"{field} is required")
     if not isinstance(claim.get("declared_status"), str) or claim["declared_status"] not in CLAIM_LABELS:
         errors.append(f"declared_status must be one of {sorted(CLAIM_LABELS)}")
+    errors.extend(_validate_scope(claim.get("scope"), name="claim.scope"))
     if not isinstance(evidence_records, list):
         errors.append("evidence_records must be an array")
         evidence_records = []
@@ -134,6 +205,14 @@ def assess_claim(claim: dict[str, Any], evidence_records: list[dict[str, Any]]) 
         for item in linked
         if validate_evidence_record(item)
     }
+    if not evidence_errors:
+        claim_scope = claim.get("scope")
+        if isinstance(claim_scope, dict):
+            for item in linked:
+                if isinstance(item.get("scope"), dict):
+                    mismatch = _scope_mismatch(claim_scope, item["scope"])
+                    if mismatch:
+                        evidence_errors[item["evidence_id"]] = mismatch
     if evidence_errors:
         return {
             "claim_id": claim["claim_id"],
