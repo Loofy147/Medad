@@ -67,6 +67,19 @@ For product sourcing, the stronger specialized stage gate additionally checks:
 - order cohorts reconciled so delivered plus failed equals placed and retained equals delivered minus returned;
 - two distinct recent reconciled cohorts before human scale review.
 
+## Integrated decision run
+
+engine/workflow.py builds one read-only analysis packet from an explicit run envelope. It hashes the normalized input basis, evaluates economics, checks every evidence record, assesses referenced claims and gates, optionally computes sensitivity, evaluates a product-stage gate when a candidate is supplied, and generates Instant alerts from the same economics snapshot.
+
+The integrated result contains:
+- a run manifest with run/case ID, observed timestamp, code revision when supplied, input hash and report hash;
+- separate economics, claim, gate, opportunity, sensitivity and event outputs;
+- a decision stage with named blockers and authorization_granted=false;
+- a provenance summary for input evidence records and URL references.
+
+The run contract requires every core economics field explicitly. Missing purchase cost is not filled from defaults. Evidence records are structurally validated even if not referenced by a claim or gate. A gate must pass with actual supplied evidence records and reviewer metadata. Critical claims that are only supported by assumptions block advancement. The run does not persist itself, execute a financial action, send notifications, or prove that the referenced artifacts are authentic. Its hashes identify the input/report packet; they are not a signature or tamper-proof storage.
+
+CLI entry point: python cli.py workflow --input decision-run.json. The result is analysis-only. A TEST_CANDIDATE economics result alone does not pass the workflow; required gates and critical claims must also be resolved.
 ## Instant event protocol
 
 Event shape follows:
