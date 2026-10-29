@@ -51,7 +51,7 @@ def validate_event(event: dict[str, Any]) -> list[str]:
             errors.append(f"{field} must be an object")
     if isinstance(event.get("state_delta"), dict) and event["state_delta"].get("to") != event.get("state"):
         errors.append("state_delta.to must match the current event state")
-    if event.get("action_kind") not in {"RECOMMENDATION_ONLY", "STATE_TRANSITION"}:
+    if not isinstance(event.get("action_kind"), str) or event["action_kind"] not in {"RECOMMENDATION_ONLY", "STATE_TRANSITION"}:
         errors.append("action_kind must be RECOMMENDATION_ONLY or STATE_TRANSITION")
     if isinstance(event.get("context"), dict):
         if event["context"].get("subject_id") != event.get("subject_id"):
