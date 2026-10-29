@@ -25,7 +25,7 @@ def _canonical(value: Any) -> bytes:
 
 
 def event_fingerprint(event: dict[str, Any]) -> str:
-    stable = {k: v for k, v in event.items() if k not in {"created_at", "event_id"}}
+    stable = {k: v for k, v in event.items() if k not in {"created_at", "observed_at", "event_id"}}
     return sha256(_canonical(stable)).hexdigest()
 
 
