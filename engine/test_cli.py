@@ -3,7 +3,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from cli import parse_inputs
@@ -102,6 +102,49 @@ class CliTests(unittest.TestCase):
             self.assertEqual(report["decision"]["stage"], "BLOCKED_UNVERIFIED_ECONOMICS")
             self.assertFalse(report["decision"]["authorization_granted"])
             self.assertEqual(report["run_manifest"]["mode"], "ANALYSIS_ONLY_NO_EXTERNAL_SIDE_EFFECTS")
+
+    def test_workflow_cli_optional_sqlite_store_atomically_persists_run_and_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "run.json"
+            database_path = Path(directory) / "medad.sqlite3"
+            evidence = {
+                "evidence_id": "cli-store-evidence",
+                "source_kind": "document",
+                "evidence_label": "quoted",
+                "polarity": "supports",
+                "observed_on": date.today().isoformat(),
+                "scope": {"subject": "delivery-rate", "metric": "delivery_rate", "geography": "Algeria"},
+                "artifact_ref": "artifact:cli-store-evidence",
+                "independence_key": "source:cli-store-evidence",
+            }
+            payload = {
+                "schema_version": "medad.decision-run.v1",
+                "run_id": "cli-store-run",
+                "case_id": "cli-store-case",
+                "observed_at": datetime.now(timezone.utc).isoformat(),
+                "code_revision": "test-revision",
+                "inputs": SYNTHETIC_INPUTS,
+                "evidence_records": [evidence],
+            }
+            input_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable, str(ENGINE_DIR / "cli.py"), "workflow",
+                    "--input", str(input_path), "--store-db", str(database_path),
+                ],
+                cwd=ENGINE_DIR, capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            output = json.loads(result.stdout)
+            self.assertFalse(output["decision"]["authorization_granted"])
+            self.assertTrue(output["storage_result"]["inserted"])
+            self.assertEqual(output["storage_result"]["run_id"], "cli-store-run")
+            with sqlite3.connect(database_path) as connection:
+                counts = dict(connection.execute(
+                    "SELECT collection, COUNT(*) FROM records GROUP BY collection"
+                ).fetchall())
+            self.assertEqual(counts["runs"], 1)
+            self.assertEqual(counts["evidence"], 1)
 
     def test_workflow_cli_optional_journal_is_idempotent(self):
         with tempfile.TemporaryDirectory() as directory:
