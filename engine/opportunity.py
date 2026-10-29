@@ -84,9 +84,11 @@ def _valid_supplier_quotes(candidate: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _valid_sample(candidate: dict[str, Any]) -> bool:
     sample = candidate.get("sample_inspection")
+    if not isinstance(sample, dict) or not _has_artifact(sample, "inspected_on"):
+        return False
+    inspected_on = date.fromisoformat(sample["inspected_on"])
     return (
-        isinstance(sample, dict)
-        and _has_artifact(sample, "inspected_on")
+        (date.today() - inspected_on).days <= 180
         and _nonblank(sample.get("inspector_id"))
         and sample.get("outcome") == "PASS"
         and sample.get("sku") == candidate.get("sku")
@@ -126,6 +128,11 @@ def _valid_courier_quote(candidate: dict[str, Any]) -> bool:
     quote = candidate.get("courier_quote")
     if not isinstance(quote, dict) or not _has_artifact(quote, "quoted_on"):
         return False
+    quoted_on = date.fromisoformat(quote["quoted_on"])
+    if (date.today() - quoted_on).days > 90:
+        return False
+    if not _valid_date(quote.get("valid_until"), allow_future=True) or quote["valid_until"] < date.today().isoformat():
+        return False
     if quote.get("seller_account_verified") is not True or not _nonblank(quote.get("origin_wilaya")):
         return False
     destinations = quote.get("coverage_wilayas")
@@ -148,6 +155,8 @@ def _valid_campaign(candidate: dict[str, Any]) -> bool:
     campaign = candidate.get("pilot_campaign")
     if not isinstance(campaign, dict) or not _has_artifact(campaign, "ended_on"):
         return False
+    if (date.today() - date.fromisoformat(campaign["ended_on"])).days > 90:
+        return False
     if not _valid_date(campaign.get("started_on")) or campaign["started_on"] > campaign["ended_on"]:
         return False
     if not all(_nonblank(campaign.get(field)) for field in ("platform", "creative_id", "attribution_method")):
@@ -163,6 +172,8 @@ def _valid_campaign(candidate: dict[str, Any]) -> bool:
 
 def _valid_order_cohort(cohort: Any, candidate_sku: Any) -> bool:
     if not isinstance(cohort, dict) or not _has_artifact(cohort, "ended_on"):
+        return False
+    if (date.today() - date.fromisoformat(cohort["ended_on"])).days > 90:
         return False
     if not _valid_date(cohort.get("started_on")) or cohort["started_on"] > cohort["ended_on"]:
         return False
@@ -275,15 +286,15 @@ def load_snapshot(path: str | Path) -> dict[str, Any]:
     lead_ids: set[str] = set()
     for lead in snapshot.get("sourcing_leads", []):
         lead_id = lead.get("id")
-        if not lead_id or lead_id in lead_ids:
+        if not _nonblank(lead_id) or lead_id in lead_ids:
             raise ValueError(f"Missing or duplicate sourcing lead id: {lead_id!r}")
         lead_ids.add(lead_id)
         linked_ids = [lead.get("platform_source_id"), *lead.get("due_diligence_source_ids", [])]
         if not linked_ids or any(source_id not in source_ids for source_id in linked_ids):
             raise ValueError(f"Sourcing lead {lead_id!r} references unknown source ids")
         # Discovery platforms must never masquerade as supplier quotes.
-        if lead.get("quote_verified") is True and lead.get("status") == "DISCOVERY_LEAD_ONLY":
-            raise ValueError(f"Sourcing lead {lead_id!r} cannot be both discovery-only and quote-verified")
+        if lead.get("quote_verified") is True:
+            raise ValueError(f"Sourcing lead {lead_id!r} cannot itself verify a supplier quote; record quote artifacts on a candidate")
 
     snapshot["readiness"] = [assess_candidate(item) for item in snapshot.get("candidates", [])]
     snapshot["sourcing_lead_count"] = len(snapshot.get("sourcing_leads", []))
