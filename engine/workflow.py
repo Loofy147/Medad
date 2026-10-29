@@ -64,14 +64,18 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
     """Return an analysis packet. It makes no external changes and never authorizes spend."""
     if not isinstance(payload, dict):
         raise ValueError("run payload must be an object")
+    allowed_top_level = {"schema_version", "run_id", "case_id", "observed_at", "code_revision", "inputs", "evidence_records", "claims", "gates", "candidate", "options", "subject_id"}
+    unknown_top_level = sorted(set(payload) - allowed_top_level)
+    if unknown_top_level:
+        raise ValueError(f"unknown run payload fields: {unknown_top_level}")
     run_id = payload.get("run_id")
     case_id = payload.get("case_id")
     if not isinstance(run_id, str) or not run_id.strip():
         raise ValueError("run_id is required")
     if not isinstance(case_id, str) or not case_id.strip():
         raise ValueError("case_id is required")
-    if payload.get("schema_version") not in (None, SCHEMA_VERSION):
-        raise ValueError(f"schema_version must be {SCHEMA_VERSION}")
+    if payload.get("schema_version") != SCHEMA_VERSION:
+        raise ValueError(f"schema_version must be explicitly set to {SCHEMA_VERSION}")
 
     now = datetime.now(timezone.utc)
     observed_at = payload.get("observed_at")
@@ -107,8 +111,11 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(subject_id, str) or not subject_id.strip():
         raise ValueError("subject_id must be a non-empty string")
     code_revision = payload.get("code_revision")
-    if code_revision is not None and (not isinstance(code_revision, str) or not code_revision.strip()):
-        raise ValueError("code_revision must be a non-empty string when supplied")
+    if not isinstance(code_revision, str) or not code_revision.strip():
+        raise ValueError("code_revision is required for a reproducible decision run")
+    unknown_options = sorted(set(options) - {"sensitivity"})
+    if unknown_options:
+        raise ValueError(f"unknown run options: {unknown_options}")
 
     inputs_data = asdict(inputs)
     run_basis = {
@@ -169,7 +176,20 @@ def build_decision_run(payload: dict[str, Any]) -> dict[str, Any]:
         "critical_claim_blockers": critical_claim_blockers,
         "candidate_stage": opportunity_result["stage"] if opportunity_result else None,
     }
-    report_hash = sha256(_canonical(output_core)).hexdigest()
+    stable_events = [
+        {key: value for key, value in event.items() if key not in {"created_at", "observed_at"}}
+        for event in instant_events
+    ]
+    report_basis = {
+        "decision_core": output_core,
+        "economics": economics,
+        "claims": claim_results,
+        "gates": gate_result,
+        "opportunity": opportunity_result,
+        "sensitivity": sensitivity,
+        "instant_events": stable_events,
+    }
+    report_hash = sha256(_canonical(report_basis)).hexdigest()
 
     return {
         "schema_version": SCHEMA_VERSION,
