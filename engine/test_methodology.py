@@ -65,6 +65,11 @@ class DecisionKernelTests(unittest.TestCase):
         self.assertEqual(result["effective_status"], "OPEN")
         self.assertFalse(result["decision_usable"])
 
+    def test_experiment_record_cannot_be_labeled_estimated(self):
+        evidence = observed_experiment("e1", "campaign-a")
+        evidence["evidence_label"] = "estimated"
+        self.assertTrue(any("labeled observed" in error for error in validate_evidence_record(evidence)))
+
     def test_experiment_contract_requires_method_and_sample(self):
         evidence = observed_experiment("e1", "campaign-a")
         evidence["method_ref"] = ""
