@@ -110,6 +110,31 @@ class UnitEconomicsTests(unittest.TestCase):
         self.assertEqual(result["data_quality"]["provenance_coverage"], 0)
         self.assertTrue(any("Source URL" in item for item in result["data_quality"]["warnings"]))
 
+    def test_provenance_only_labels_contribute_coverage_but_do_not_create_high_confidence(self):
+        result = evaluate(Inputs(
+            evidence_sources={
+                "unit_cost": {"url": "https://example.com/cost", "observed_on": "2026-10-29", "label": "quoted"},
+                "selling_price": {"url": "https://example.com/price", "observed_on": "2026-10-29", "label": "observed"},
+            },
+        ))
+        self.assertEqual(result["data_quality"]["coverage"], 0.4)
+        self.assertEqual(result["data_quality"]["provenance_coverage"], 0.4)
+        self.assertEqual(result["data_quality"]["grade"], "LOW")
+        self.assertEqual(result["data_quality"]["components"]["unit_cost"], 0.8)
+        self.assertIn("selling_price", result["data_quality"]["evidence_labels"])
+
+    def test_confidence_and_label_for_same_group_are_blended_once(self):
+        result = evaluate(Inputs(
+            confidence={"unit_cost": 0.9},
+            evidence={"unit_cost": "quoted"},
+            evidence_sources={"unit_cost": {"url": "https://example.com/cost", "observed_on": "2026-10-29", "label": "quoted"}},
+            sample_size=5,
+            data_age_days=0,
+        ))
+        self.assertEqual(result["data_quality"]["components"], {"unit_cost": 0.85})
+        self.assertEqual(result["data_quality"]["coverage"], 0.2)
+        self.assertEqual(result["data_quality"]["provenance_coverage"], 0.2)
+
     def test_source_metadata_requires_valid_url_date_and_label(self):
         with self.assertRaises(ValueError):
             evaluate(Inputs(evidence_sources={"unit_cost": {"url": "not-a-url", "observed_on": "2026-10-29", "label": "quoted"}}))
