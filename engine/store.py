@@ -194,8 +194,9 @@ def _validate_collection_payload(collection: str, record_id: str, payload: dict[
 
 def _audit_body(row: sqlite3.Row | dict[str, Any]) -> dict[str, Any]:
     fields = (
-        "event_id", "occurred_at", "actor_id", "actor_issuer", "action",
-        "resource_type", "resource_id", "outcome", "reason", "details_json", "previous_hash",
+        "event_id", "occurred_at", "actor_id", "actor_issuer", "actor_roles_json",
+        "authenticated_at", "authn_method", "action", "resource_type", "resource_id",
+        "outcome", "reason", "details_json", "previous_hash",
     )
     return {key: row[key] for key in fields}
 
@@ -270,6 +271,7 @@ class SQLiteStore:
                     "CREATE TABLE audit_events ("
                     "sequence INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT NOT NULL UNIQUE, "
                     "occurred_at TEXT NOT NULL, actor_id TEXT NOT NULL, actor_issuer TEXT NOT NULL, "
+                    "actor_roles_json TEXT NOT NULL, authenticated_at TEXT NOT NULL, authn_method TEXT NOT NULL, "
                     "action TEXT NOT NULL, resource_type TEXT NOT NULL, resource_id TEXT NOT NULL, "
                     "outcome TEXT NOT NULL, reason TEXT NOT NULL, details_json TEXT NOT NULL, "
                     "previous_hash TEXT NOT NULL, event_hash TEXT NOT NULL)"
@@ -281,6 +283,16 @@ class SQLiteStore:
                 connection.execute(
                     "CREATE TRIGGER audit_events_no_delete BEFORE DELETE ON audit_events "
                     "BEGIN SELECT RAISE(ABORT, 'audit events are append-only'); END"
+                )
+                connection.execute(
+                    "CREATE TRIGGER decisions_records_no_update BEFORE UPDATE ON records "
+                    "WHEN OLD.collection = 'decisions' "
+                    "BEGIN SELECT RAISE(ABORT, 'decision records are append-only'); END"
+                )
+                connection.execute(
+                    "CREATE TRIGGER decisions_records_no_delete BEFORE DELETE ON records "
+                    "WHEN OLD.collection = 'decisions' "
+                    "BEGIN SELECT RAISE(ABORT, 'decision records are append-only'); END"
                 )
                 connection.execute(
                     "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
@@ -315,6 +327,9 @@ class SQLiteStore:
             "occurred_at": _utc_now(),
             "actor_id": actor.subject_id,
             "actor_issuer": actor.issuer,
+            "actor_roles_json": _canonical(sorted(set(actor.roles))).decode("utf-8"),
+            "authenticated_at": actor.authenticated_at,
+            "authn_method": actor.authn_method,
             "action": action,
             "resource_type": resource_type,
             "resource_id": resource_id,
@@ -325,11 +340,13 @@ class SQLiteStore:
         }
         event_hash = _audit_hash(body)
         connection.execute(
-            "INSERT INTO audit_events(event_id, occurred_at, actor_id, actor_issuer, action, "
-            "resource_type, resource_id, outcome, reason, details_json, previous_hash, event_hash) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO audit_events(event_id, occurred_at, actor_id, actor_issuer, actor_roles_json, "
+            "authenticated_at, authn_method, action, resource_type, resource_id, outcome, reason, "
+            "details_json, previous_hash, event_hash) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 body["event_id"], body["occurred_at"], body["actor_id"], body["actor_issuer"],
+                body["actor_roles_json"], body["authenticated_at"], body["authn_method"],
                 body["action"], body["resource_type"], body["resource_id"], body["outcome"],
                 body["reason"], body["details_json"], body["previous_hash"], event_hash,
             ),
@@ -515,10 +532,9 @@ class SQLiteStore:
                 if not isinstance(payload.get(field_name), str) or not payload[field_name].strip():
                     raise ValueError(f"{field_name} is required for RISK_ACCEPTANCE ACCEPT")
         try:
-            payload_json = _canonical(payload).decode("utf-8")
+            _canonical(payload)
         except (TypeError, ValueError) as exc:
             raise ValueError("decision must be JSON-serializable without NaN/Infinity") from exc
-        content_hash = sha256(payload_json.encode("utf-8")).hexdigest()
         self._require_permission(
             actor, action, "decisions", decision_id, reason=f"{decision_type}: {rationale}"
         )
@@ -530,15 +546,63 @@ class SQLiteStore:
             ).fetchone()
             if existing:
                 raise StoreConflict(f"decision_id {decision_id!r} already exists; decisions are append-only")
-            missing_refs = [
-                evidence_id for evidence_id in evidence_refs
-                if connection.execute(
-                    "SELECT 1 FROM records WHERE collection = 'evidence' AND record_id = ?",
+
+            evidence_rows: dict[str, sqlite3.Row] = {}
+            for evidence_id in evidence_refs:
+                row = connection.execute(
+                    "SELECT revision, content_hash FROM records "
+                    "WHERE collection = 'evidence' AND record_id = ?",
                     (evidence_id,),
-                ).fetchone() is None
-            ]
+                ).fetchone()
+                if row is not None:
+                    evidence_rows[evidence_id] = row
+            missing_refs = [evidence_id for evidence_id in evidence_refs if evidence_id not in evidence_rows]
             if missing_refs:
                 raise ValueError(f"decision references missing evidence records: {missing_refs}")
+            evidence_snapshots = [
+                {
+                    "evidence_id": evidence_id,
+                    "revision": evidence_rows[evidence_id]["revision"],
+                    "content_hash": evidence_rows[evidence_id]["content_hash"],
+                }
+                for evidence_id in evidence_refs
+            ]
+
+            if decision_type == "STAGE_DECISION" and outcome == "ADVANCE":
+                existing_decisions = connection.execute(
+                    "SELECT payload_json FROM records WHERE collection = 'decisions'"
+                ).fetchall()
+                reviewed_at_matches = []
+                for snapshot in evidence_snapshots:
+                    current_pass_review = None
+                    for decision_row in existing_decisions:
+                        try:
+                            previous_decision = json.loads(decision_row["payload_json"])
+                        except json.JSONDecodeError:
+                            continue
+                        if (
+                            previous_decision.get("decision_type") != "EVIDENCE_REVIEW"
+                            or previous_decision.get("outcome") != "PASS"
+                        ):
+                            continue
+                        if snapshot in previous_decision.get("evidence_snapshots", []):
+                            previous_reviewed_at = _parse_aware_time(
+                                previous_decision.get("reviewed_at"), "reviewed_at"
+                            )
+                            if current_pass_review is None or previous_reviewed_at > current_pass_review:
+                                current_pass_review = previous_reviewed_at
+                    if current_pass_review is None:
+                        raise ValueError(
+                            "ADVANCE requires a current PASS review for each evidence record; "
+                            "the review is missing or refers to an older evidence revision"
+                        )
+                    if reviewed_at < current_pass_review:
+                        raise ValueError("stage decision reviewed_at must not precede the current PASS review")
+                    reviewed_at_matches.append(current_pass_review.isoformat())
+
+            stored_payload = {**payload, "evidence_snapshots": evidence_snapshots}
+            payload_json = _canonical(stored_payload).decode("utf-8")
+            content_hash = sha256(payload_json.encode("utf-8")).hexdigest()
             now = _utc_now()
             connection.execute(
                 "INSERT INTO records(collection, record_id, revision, payload_json, content_hash, "
@@ -551,6 +615,7 @@ class SQLiteStore:
                     "decision_type": decision_type,
                     "outcome": outcome,
                     "evidence_refs": evidence_refs,
+                    "evidence_snapshots": evidence_snapshots,
                     "content_hash": content_hash,
                 },
             )
@@ -575,15 +640,18 @@ class SQLiteStore:
                 "SELECT * FROM audit_events WHERE sequence > ? ORDER BY sequence LIMIT ?",
                 (after_sequence, limit),
             ).fetchall()
-        return [
-            {
-                **_audit_body(row),
+        events = []
+        for row in rows:
+            body = _audit_body(row)
+            actor_roles = json.loads(body.pop("actor_roles_json"))
+            events.append({
+                **body,
+                "actor_roles": actor_roles,
                 "sequence": row["sequence"],
                 "details": json.loads(row["details_json"]),
                 "event_hash": row["event_hash"],
-            }
-            for row in rows
-        ]
+            })
+        return events
 
     def verify_audit_chain(self, actor: Actor) -> dict[str, Any]:
         self._require_permission(actor, "audit:verify", "audit_events", "chain", reason="verify audit chain")
