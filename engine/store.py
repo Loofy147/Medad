@@ -20,9 +20,11 @@ import uuid
 
 try:
     from decision_kernel import validate_evidence_record
+    from task_contract import validate_task_payload, validate_task_transition
     from workflow import validate_decision_run_report
 except ModuleNotFoundError:  # support both engine-directory CLI and package imports
     from .decision_kernel import validate_evidence_record
+    from .task_contract import validate_task_payload, validate_task_transition
     from .workflow import validate_decision_run_report
 
 
@@ -173,6 +175,12 @@ def _validate_collection_payload(collection: str, record_id: str, payload: dict[
             raise ValueError(f"decision-run contract violations: {errors}")
         return
 
+    if collection == "tasks":
+        errors = validate_task_payload(record_id, payload)
+        if errors:
+            raise ValueError(f"task contract violations: {errors}")
+        return
+
     if collection == "artifacts":
         artifact_ref = payload.get("artifact_ref")
         digest = payload.get("sha256", payload.get("artifact_sha256"))
@@ -184,6 +192,89 @@ def _validate_collection_payload(collection: str, record_id: str, payload: dict[
             or any(char not in "0123456789abcdef" for char in digest.lower())
         ):
             raise ValueError("artifact SHA-256 digest must be a 64-character hexadecimal string")
+
+
+def _validate_task_persistence(
+    connection: sqlite3.Connection,
+    record_id: str,
+    payload: dict[str, Any],
+    current_row: sqlite3.Row | None,
+) -> None:
+    """Enforce state-transition, dependency and cross-task invariants inside the write transaction."""
+    previous: dict[str, Any] | None = (
+        json.loads(current_row["payload_json"]) if current_row is not None else None
+    )
+    if previous is None:
+        if payload["status"] != "OPEN":
+            raise ValueError("new tasks must start in OPEN status")
+        if payload["transition"] is not None:
+            raise ValueError("new tasks cannot claim a prior state transition")
+    else:
+        errors = validate_task_transition(previous, payload)
+        if errors:
+            raise ValueError(f"task transition contract violations: {errors}")
+
+    rows = connection.execute(
+        "SELECT record_id, payload_json FROM records WHERE collection = 'tasks'"
+    ).fetchall()
+    task_payloads = {row["record_id"]: json.loads(row["payload_json"]) for row in rows}
+    task_payloads[record_id] = payload
+    graph = {
+        task_id: task.get("dependencies", [])
+        for task_id, task in task_payloads.items()
+    }
+    for task_id, dependencies in graph.items():
+        missing = sorted(set(dependencies) - set(graph))
+        if missing:
+            raise ValueError(f"task {task_id!r} references missing dependencies: {missing}")
+
+    # Iterative DFS avoids Python recursion limits for long dependency chains.
+    color: dict[str, int] = {}
+    for start in graph:
+        if color.get(start) == 2:
+            continue
+        stack: list[tuple[str, bool]] = [(start, False)]
+        while stack:
+            node, exiting = stack.pop()
+            if exiting:
+                color[node] = 2
+                continue
+            state = color.get(node, 0)
+            if state == 1:
+                raise ValueError(f"task dependency cycle detected at {node!r}")
+            if state == 2:
+                continue
+            color[node] = 1
+            stack.append((node, True))
+            for dependency in reversed(graph[node]):
+                dependency_state = color.get(dependency, 0)
+                if dependency_state == 1:
+                    raise ValueError(f"task dependency cycle detected through {dependency!r}")
+                if dependency_state == 0:
+                    stack.append((dependency, False))
+
+    if payload["status"] in {"READY", "IN_PROGRESS", "DONE"}:
+        unmet = [
+            dependency for dependency in payload["dependencies"]
+            if task_payloads[dependency].get("status") != "DONE"
+        ]
+        if unmet:
+            raise ValueError(
+                f"tasks cannot enter {payload['status']} before every dependency is DONE: {sorted(unmet)}"
+            )
+
+    if previous is not None and previous.get("status") == "DONE" and payload["status"] != "DONE":
+        dependents = [
+            task_id for task_id, task in task_payloads.items()
+            if task_id != record_id
+            and record_id in task.get("dependencies", [])
+            and task.get("status") in {"READY", "IN_PROGRESS", "DONE"}
+        ]
+        if dependents:
+            raise ValueError(
+                "cannot reopen a completed prerequisite while dependent tasks are READY, IN_PROGRESS or DONE; "
+                f"reconcile dependents first: {sorted(dependents)}"
+            )
 
 
 def _audit_body(row: sqlite3.Row | dict[str, Any]) -> dict[str, Any]:
@@ -394,6 +485,8 @@ class SQLiteStore:
                 "SELECT * FROM records WHERE collection = ? AND record_id = ?",
                 (collection, record_id),
             ).fetchone()
+            if collection == "tasks":
+                _validate_task_persistence(connection, record_id, payload, current)
             if collection == "runs":
                 for item in payload["provenance_summary"]["evidence_manifest"]:
                     referenced = connection.execute(
@@ -431,9 +524,18 @@ class SQLiteStore:
                     (revision, payload_json, payload_hash, now, actor.subject_id, collection, record_id),
                 )
                 outcome = "UPDATED"
+            audit_details = {"revision": revision, "content_hash": payload_hash}
+            if collection == "tasks":
+                old_status = json.loads(current["payload_json"]).get("status") if current is not None else None
+                audit_details["task_state"] = {
+                    "from_status": old_status,
+                    "to_status": payload["status"],
+                    "state_changed": old_status != payload["status"],
+                    "transition": payload["transition"],
+                }
             self._append_audit(
                 connection, actor, f"write:{collection}", collection, record_id,
-                outcome, reason, {"revision": revision, "content_hash": payload_hash},
+                outcome, reason, audit_details,
             )
             row = connection.execute(
                 "SELECT * FROM records WHERE collection = ? AND record_id = ?",
