@@ -42,6 +42,7 @@ class SQLiteStoreTests(unittest.TestCase):
             "evidence",
             "evidence-1",
             {"label": "USER_REPORTED", "source_ref": "artifact:sample-1"},
+            expected_revision=0,
             reason="Capture evidence candidate",
         )
         self.assertEqual(created["revision"], 1)
