@@ -60,13 +60,14 @@ def validate_event(event: dict[str, Any]) -> list[str]:
             errors.append("context.subject_id must match subject_id")
         if not isinstance(event["context"].get("snapshot_hash"), str) or not event["context"]["snapshot_hash"].strip():
             errors.append("context.snapshot_hash is required")
-        if event["context"].get("mode") not in {"LOCAL_ONLY", "LOCAL_ECONOMICS_SNAPSHOT", "LOCAL_EVENT_TRANSITION"}:
+        mode = event["context"].get("mode")
+        if not isinstance(mode, str) or mode not in {"LOCAL_ONLY", "LOCAL_ECONOMICS_SNAPSHOT", "LOCAL_EVENT_TRANSITION"}:
             errors.append("context.mode is invalid for this local prototype")
     if isinstance(event.get("propagation"), dict) and event["propagation"].get("mode") != "LOCAL_ONLY":
         errors.append("this prototype only supports LOCAL_ONLY propagation")
     if isinstance(event.get("state_delta"), dict):
         prior = event["state_delta"].get("from")
-        if prior is not None and prior not in EVENT_STATES:
+        if prior is not None and (not isinstance(prior, str) or prior not in EVENT_STATES):
             errors.append("state_delta.from must be null or a known event state")
     if any(action not in EVENT_STATES for action in event.get("recovery_actions", []) if isinstance(action, str)):
         errors.append("recovery_actions contains an unknown event state")
