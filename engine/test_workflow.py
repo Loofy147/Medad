@@ -47,6 +47,7 @@ def valid_experiment_evidence(evidence_id: str = "e-pilot") -> dict:
         "independence_key": "pilot-run-01",
         "sample_size": 50,
         "method_ref": "method://controlled-pilot-v1",
+        "scope": {"subject": "generic-case", "metric": "pilot-outcome"},
     }
 
 
@@ -134,12 +135,14 @@ class DecisionWorkflowTests(unittest.TestCase):
             "polarity": "supports",
             "observed_on": date.today().isoformat(),
             "independence_key": "unverified-claim-source",
+            "scope": {"subject": "generic-product", "metric": "demand"},
         })
         payload["claims"] = [{
             "claim_id": "c-demand",
             "statement": "Demand is sufficient to scale",
             "declared_status": "INFERENCE",
             "evidence_refs": ["e-assumption"],
+            "scope": {"subject": "generic-product", "metric": "demand"},
             "decision_critical": True,
         }]
         result = build_decision_run(payload)
