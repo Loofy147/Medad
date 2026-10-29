@@ -71,18 +71,39 @@ class DecisionKernelTests(unittest.TestCase):
         self.assertTrue(any("method_ref" in error for error in validate_evidence_record(evidence)))
 
     def test_unknown_gate_blocks_even_if_another_gate_passes(self):
+        evidence = observed_experiment("sample-ref", "inspection-run-1")
         result = assess_gates([
-            {"gate_id": "sample", "state": "PASS", "evidence_refs": ["artifact://sample"]},
+            {"gate_id": "sample", "state": "PASS", "evidence_refs": ["sample-ref"],
+             "reviewed_by": "reviewer-a", "reviewed_at": date.today().isoformat(), "reason": "Sample inspection passed"},
             {"gate_id": "courier", "state": "UNKNOWN", "evidence_refs": []},
-        ])
+        ], evidence_records=[evidence])
         self.assertFalse(result["eligible_for_next_stage"])
         self.assertEqual(result["blocking_gate_ids"], ["courier"])
 
     def test_pass_without_evidence_is_not_pass(self):
-        result = assess_gates([{"gate_id": "cost", "state": "PASS", "evidence_refs": []}])
+        result = assess_gates([{"gate_id": "cost", "state": "PASS", "evidence_refs": [],
+                                "reviewed_by": "reviewer-a", "reviewed_at": date.today().isoformat(), "reason": "Reviewed"}],
+                              evidence_records=[])
         self.assertFalse(result["eligible_for_next_stage"])
         self.assertIn("cost", result["blocking_gate_ids"])
         self.assertTrue(result["contract_errors"])
+
+    def test_gate_pass_rejects_unknown_evidence_ids_and_missing_review(self):
+        gate = {"gate_id": "supplier-quote", "state": "PASS", "evidence_refs": ["not-in-registry"],
+                "reviewed_by": "reviewer-a", "reviewed_at": date.today().isoformat(), "reason": "Reviewed"}
+        result = assess_gates([gate], evidence_records=[])
+        self.assertFalse(result["eligible_for_next_stage"])
+        self.assertIn("supplier-quote", result["blocking_gate_ids"])
+        self.assertTrue(any("unknown evidence" in message for message in result["contract_errors"]))
+
+    def test_all_reviewed_valid_gates_are_eligible_not_automatically_approved(self):
+        evidence = observed_experiment("gate-e1", "sample-run-1")
+        result = assess_gates([
+            {"gate_id": "sample", "state": "PASS", "evidence_refs": ["gate-e1"],
+             "reviewed_by": "reviewer-a", "reviewed_at": date.today().isoformat(), "reason": "Sample matched specification"},
+        ], evidence_records=[evidence])
+        self.assertTrue(result["eligible_for_next_stage"])
+        self.assertIn("separate authorized decision", result["meaning"])
 
     def test_continuation_contract_requires_resume_evidence_and_test(self):
         contract = {
