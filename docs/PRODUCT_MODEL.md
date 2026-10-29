@@ -48,12 +48,12 @@ Input values can be numerically plausible and still be untrustworthy. For a sour
 
 The current readiness evaluator deliberately ignores old boolean-only assertions such as "supplier quotes verified" or "campaign tested". To pass research gates, candidate records must include traceable evidence:
 
-- **SKU + sample:** `sku` and `product_spec_verified=true`, plus `sample_inspection` containing `artifact_ref`, `inspected_on`, `inspector_id`, `outcome=PASS`, and the same SKU.
+- **SKU + sample:** exact `sku`, a `product_spec` record containing `artifact_ref`, HTTPS `source_ref`, `verified_on`, `verified_by`, `verified=true`, the same SKU, and a non-empty `fields` object. `sample_inspection` must contain `artifact_ref`, `inspected_on`, `inspector_id`, `outcome=PASS`, the same SKU, `spec_match=true`, and `compared_to_spec_artifact_ref` equal to the specification artifact. Boolean-only declarations do not pass.
 - **Supplier quotes:** at least two quote objects from distinct `supplier_id` values, each with a unique `quote_id`, an evidence `artifact_ref`, quote date, unexpired `valid_until`, exact matching SKU, `seller_verified=true`, positive `unit_price_dzd`, a positive integer `minimum_quantity`, and `currency=DZD`.
 - **Landed cost:** documented `component_costs_dzd` must include purchase, packaging and inbound transport. Their sum must reconcile to `unit_cost_dzd` (tolerance 0.02 DZD), be reviewed, and reference at least one of the valid quote IDs.
 - **Courier terms:** seller account verified, origin wilaya, explicit destination coverage, outbound/failed-delivery/return fees, cash-remittance days, quote/contract ID, date and evidence reference.
 - **Campaign:** evidence ref, platform, creative, attribution method, start/end dates, spend and integer placed/attributed order counts.
-- **Order cohort:** evidence ref, SKU, date window, reviewer and reconciliation flag. The evaluator checks `delivered + failed = placed`, `returned <= delivered`, and `retained = delivered - returned`. Two distinct reconciled cohorts are required for `SCALE_REVIEW_CANDIDATE`.
+- **Order cohort:** evidence ref, SKU, date window, reviewer and reconciliation flag. The evaluator checks delivered + failed = placed, returned <= delivered, and retained = delivered - returned. Cohort IDs and artifact refs must be distinct and date windows must not overlap; duplicated/overlapping records do not prove repeatability. Two distinct reconciled cohorts are required for human scale review.
 
 `artifact_ref` is an opaque traceable reference (for example an internal document ID or private object reference); this repository does not implement upload/storage of those artifacts yet. A valid reference and well-formed record are necessary but do not independently prove authenticity. Human review is still required, and a scale-review stage is not investment approval.
 
