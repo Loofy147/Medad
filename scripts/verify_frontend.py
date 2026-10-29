@@ -84,6 +84,8 @@ def main() -> int:
         raise SystemExit("clicking a product must clear unknown supplier cost before unit-economics calculation")
     if "Hnaya Source" not in html or "Kabagros" not in html or "SVC Corporation" not in html:
         raise SystemExit("supplier-discovery references are missing from product lab")
+    if "data-copy-supplier" not in html or "لم يتم إرسالها" not in script or "devis grossiste séparé" not in script:
+        raise SystemExit("bilingual supplier quote draft must be present and must not claim it was sent")
     if not script.strip():
         raise SystemExit("inline JavaScript not found")
     with tempfile.NamedTemporaryFile("w", suffix=".js", encoding="utf-8", delete=False) as f:
