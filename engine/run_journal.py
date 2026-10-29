@@ -11,6 +11,11 @@ from threading import RLock
 from typing import Any
 import json
 
+try:
+    from workflow import validate_decision_run_report
+except ModuleNotFoundError:  # support both engine-directory CLI and package imports
+    from .workflow import validate_decision_run_report
+
 JOURNAL_SCHEMA_VERSION = "medad.run-journal.v1"
 
 
@@ -34,20 +39,11 @@ def _record_hash(record: dict[str, Any]) -> str:
 def _validate_report(report: Any) -> dict[str, Any]:
     if not isinstance(report, dict):
         raise ValueError("report must be an object")
-    if report.get("schema_version") != "medad.decision-run.v1":
-        raise ValueError("report schema_version must be medad.decision-run.v1")
-    manifest = report.get("run_manifest")
-    decision = report.get("decision")
-    if not isinstance(manifest, dict) or not isinstance(decision, dict):
-        raise ValueError("report requires run_manifest and decision objects")
-    for field in ("run_id", "case_id", "input_hash", "report_hash"):
-        value = manifest.get(field)
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError(f"report run_manifest.{field} is required")
-    if manifest.get("mode") != "ANALYSIS_ONLY_NO_EXTERNAL_SIDE_EFFECTS":
-        raise ValueError("only analysis-only decision reports can be journaled")
-    if decision.get("authorization_granted") is not False:
-        raise ValueError("journal will not accept a report that claims authorization")
+    contract_errors = validate_decision_run_report(report)
+    if contract_errors:
+        raise ValueError(f"decision report validation failed: {contract_errors}")
+    manifest = report["run_manifest"]
+    decision = report["decision"]
     try:
         _canonical(report)
     except (TypeError, ValueError) as exc:
