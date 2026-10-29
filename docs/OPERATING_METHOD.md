@@ -33,7 +33,7 @@ These statuses are decision-support labels, not a universal theory of truth. The
 
 ## Evidence contract
 
-Each evidence record must have a stable identity, source kind, evidence label, polarity (supports, contradicts, context), observation date, and an independence key. URL records require HTTPS; non-URL records require a stable artifact reference. Observed records declare sample size. Experiment records declare both a method reference and a positive sample size.
+Each evidence record must have a stable identity, source kind, evidence label, polarity (supports, contradicts, context), observation date, independence key, and a scope object. Claims also declare a scope. Scope must at least identify subject and metric; when a claim specifies geography, population, SKU, currency, channel, wilaya or a time window, linked evidence must match that dimension or explicitly use a permitted geographic/population wildcard. Evidence period bounds must cover the claim period. Scope mismatch makes the claim OPEN even when the URL and evidence ID are structurally valid. URL records require HTTPS; non-URL records require a stable artifact reference. Observed records declare sample size. Experiment records declare both a method reference and a positive sample size and must be labeled observed.
 
 Important restrictions:
 
