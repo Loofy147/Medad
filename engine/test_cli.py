@@ -88,6 +88,7 @@ class CliTests(unittest.TestCase):
                 "run_id": "cli-run-test",
                 "case_id": "cli-generic-case",
                 "observed_at": datetime.now(timezone.utc).isoformat(),
+                "code_revision": "test-revision",
                 "inputs": SYNTHETIC_INPUTS,
             }
             input_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
