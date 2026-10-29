@@ -1,6 +1,7 @@
 import sqlite3
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 
 from store import (
@@ -22,6 +23,45 @@ def actor(subject: str, *roles: str) -> Actor:
     )
 
 
+def evidence_payload(
+    evidence_id: str,
+    *,
+    evidence_label: str = "quoted",
+    polarity: str = "supports",
+    sample_size: int | None = None,
+) -> dict:
+    payload = {
+        "evidence_id": evidence_id,
+        "source_kind": "document",
+        "evidence_label": evidence_label,
+        "polarity": polarity,
+        "observed_on": date.today().isoformat(),
+        "scope": {"subject": "delivery-rate", "metric": "delivery_rate", "geography": "Algeria"},
+        "artifact_ref": f"artifact:{evidence_id}",
+        "independence_key": f"source:{evidence_id}",
+    }
+    if evidence_label == "observed":
+        payload["sample_size"] = 10 if sample_size is None else sample_size
+    elif sample_size is not None:
+        payload["sample_size"] = sample_size
+    return payload
+
+
+def valid_run_payload(run_id: str) -> dict:
+    return {
+        "schema_version": "medad.decision-run.v1",
+        "run_manifest": {
+            "run_id": run_id,
+            "case_id": "case:store-fixture",
+            "code_revision": "test-revision",
+            "mode": "ANALYSIS_ONLY_NO_EXTERNAL_SIDE_EFFECTS",
+            "input_hash": "a" * 64,
+            "report_hash": "b" * 64,
+        },
+        "decision": {"authorization_granted": False},
+    }
+
+
 class SQLiteStoreTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -41,20 +81,20 @@ class SQLiteStoreTests(unittest.TestCase):
             self.analyst,
             "evidence",
             "evidence-1",
-            {"label": "USER_REPORTED", "source_ref": "artifact:sample-1"},
+            evidence_payload("evidence-1"),
             expected_revision=0,
             reason="Capture evidence candidate",
         )
         self.assertEqual(created["revision"], 1)
 
         loaded = self.store.get_record(self.analyst, "evidence", "evidence-1")
-        self.assertEqual(loaded["payload"]["label"], "USER_REPORTED")
+        self.assertEqual(loaded["payload"]["evidence_label"], "quoted")
 
         updated = self.store.put_record(
             self.analyst,
             "evidence",
             "evidence-1",
-            {"label": "EXPERIMENTALLY_SUPPORTED", "source_ref": "artifact:sample-1"},
+            evidence_payload("evidence-1", evidence_label="observed", sample_size=12),
             expected_revision=1,
             reason="Record reviewed evidence status",
         )
@@ -65,7 +105,7 @@ class SQLiteStoreTests(unittest.TestCase):
                 self.analyst,
                 "evidence",
                 "evidence-1",
-                {"label": "CONTRADICTED"},
+                evidence_payload("evidence-1", polarity="contradicts"),
                 expected_revision=1,
                 reason="Stale update must not win",
             )
@@ -77,6 +117,58 @@ class SQLiteStoreTests(unittest.TestCase):
                 "evidence-1",
                 {"label": "CONTRADICTED"},
                 reason="Blind updates are forbidden",
+            )
+
+    def test_evidence_contract_is_enforced_at_storage_boundary(self):
+        invalid = evidence_payload("evidence-invalid")
+        invalid["scope"] = {"subject": "delivery-rate"}
+        with self.assertRaisesRegex(ValueError, "evidence contract"):
+            self.store.put_record(
+                self.analyst, "evidence", "evidence-invalid", invalid,
+                reason="Reject incomplete evidence scope",
+            )
+
+        mismatched = evidence_payload("payload-id")
+        with self.assertRaisesRegex(ValueError, "evidence_id must match"):
+            self.store.put_record(
+                self.analyst, "evidence", "different-id", mismatched,
+                reason="Reject identity mismatch",
+            )
+
+    def test_run_records_must_be_analysis_only_and_hash_identified(self):
+        report = valid_run_payload("run-1")
+        saved = self.store.put_record(
+            self.analyst, "runs", "run-1", report, reason="Persist a decision-run report"
+        )
+        self.assertEqual(saved["payload"]["run_manifest"]["run_id"], "run-1")
+
+        unsafe = valid_run_payload("run-unsafe")
+        unsafe["decision"]["authorization_granted"] = True
+        with self.assertRaisesRegex(ValueError, "authorization_granted"):
+            self.store.put_record(
+                self.analyst, "runs", "run-unsafe", unsafe,
+                reason="Reject a run that claims authorization",
+            )
+
+        malformed = valid_run_payload("run-bad-hash")
+        malformed["run_manifest"]["input_hash"] = "not-a-digest"
+        with self.assertRaisesRegex(ValueError, "input_hash"):
+            self.store.put_record(
+                self.analyst, "runs", "run-bad-hash", malformed,
+                reason="Reject malformed run identity",
+            )
+
+    def test_artifact_records_require_a_reference_or_digest(self):
+        with self.assertRaisesRegex(ValueError, "artifact_ref or sha256"):
+            self.store.put_record(
+                self.analyst, "artifacts", "artifact-empty", {"label": "empty"},
+                reason="Reject artifact without an identity",
+            )
+
+        with self.assertRaisesRegex(ValueError, "64-character"):
+            self.store.put_record(
+                self.analyst, "artifacts", "artifact-bad-digest", {"sha256": "bad"},
+                reason="Reject malformed artifact digest",
             )
 
     def test_unknown_collections_and_non_json_payloads_are_rejected(self):
@@ -95,7 +187,7 @@ class SQLiteStoreTests(unittest.TestCase):
                 self.reviewer,
                 "evidence",
                 "evidence-denied",
-                {"label": "USER_REPORTED"},
+                evidence_payload("evidence-denied"),
                 reason="Reviewer should not mutate source evidence",
             )
 
@@ -121,7 +213,7 @@ class SQLiteStoreTests(unittest.TestCase):
 
         self.store.put_record(
             self.analyst, "evidence", "evidence-1",
-            {"label": "OBSERVED", "source_ref": "artifact:delivery-rate"},
+            evidence_payload("evidence-1"),
             reason="Add referenced source record",
         )
         stored_review = self.store.record_decision(self.reviewer, "review-1", review)
@@ -189,7 +281,7 @@ class SQLiteStoreTests(unittest.TestCase):
     def test_audit_chain_verifies_and_database_triggers_block_mutation(self):
         self.store.put_record(
             self.analyst, "artifacts", "artifact-1",
-            {"sha256": "abc123"}, reason="Register artifact",
+            {"sha256": "a" * 64}, reason="Register artifact",
         )
         self.assertTrue(self.store.verify_audit_chain(self.auditor)["valid"])
 
