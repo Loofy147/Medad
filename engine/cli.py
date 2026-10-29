@@ -13,6 +13,7 @@ from sensitivity import sensitivity_report
 from instant import JsonlEventJournal, generate_instant_events
 from decision_kernel import assess_claim, assess_gates, validate_continuation_contract
 from opportunity import load_snapshot
+from workflow import build_decision_run
 
 
 def read_json(path: str | Path) -> dict[str, Any]:
@@ -50,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Medad local, product-agnostic decision engines")
     parser.add_argument(
         "command",
-        choices=("economics", "sensitivity", "instant", "claim", "gates", "continuation", "opportunity-audit"),
+        choices=("economics", "sensitivity", "instant", "claim", "gates", "continuation", "opportunity-audit", "workflow"),
     )
     parser.add_argument("--input", help="JSON input file for the selected command")
     parser.add_argument("--snapshot", help="Research snapshot JSON for opportunity-audit")
@@ -75,7 +76,9 @@ def main(argv: list[str] | None = None) -> int:
             if not args.input:
                 raise ValueError(f"{args.command} requires --input")
             payload = read_json(args.input)
-            if args.command == "economics":
+            if args.command == "workflow":
+                output = build_decision_run(payload)
+            elif args.command == "economics":
                 output = evaluate(parse_inputs(payload))
             elif args.command == "sensitivity":
                 output = sensitivity_report(parse_inputs(payload))
