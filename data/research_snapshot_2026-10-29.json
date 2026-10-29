@@ -122,6 +122,22 @@
         "No confirmed return/refusal fee schedule",
         "No service-level commitment or cash-remittance timing verified"
       ]
+    },
+    {
+      "id": "aps-online-payment-update-2026-08-07",
+      "publisher": "Algeria Press Service (APS)",
+      "title": "Online-payment merchant and transaction update",
+      "url": "https://www.aps.dz/economie/commerce-et-service/msip5jny-%D8%B9%D8%AF%D8%AF-%D8%A7%D9%84%D8%AA%D8%AC%D8%A7%D8%B1-%D8%A7%D9%84%D8%B0%D9%8A%D9%86-%D9%8A%D9%88%D9%81%D8%B1%D9%88%D9%86-%D8%AE%D8%AF%D9%85%D8%A9-%D8%A7%D9%84%D8%AF%D9%81%D8%B9-%D8%B9%D8%A8%D8%B1-%D8%A7%D9%84%D8%A7%D9%94%D9%84%D9%81",
+      "source_type": "official_payment_system_context",
+      "publication_date": "2026-08-07",
+      "observed_facts": {
+        "context": "APS reports growth in online payment merchants/transaction counts, while noting that some growth was influenced by public-service payments such as AADL 3 and Hajj. These aggregate payments do not establish demand for a consumer SKU."
+      },
+      "evidence_limitations": [
+        "Aggregate payment activity is not product-level sales data",
+        "Transactions include non-retail and public-service payments",
+        "Not a source for conversion, CAC, delivery rate, return rate, or willingness to buy a candidate product"
+      ]
     }
   ],
   "candidates": [
