@@ -115,7 +115,7 @@ class SQLiteStoreTests(unittest.TestCase):
                 self.analyst,
                 "evidence",
                 "evidence-1",
-                {"label": "CONTRADICTED"},
+                evidence_payload("evidence-1", polarity="contradicts"),
                 reason="Blind updates are forbidden",
             )
 
