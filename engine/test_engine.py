@@ -130,8 +130,8 @@ class OpportunityGateTests(unittest.TestCase):
         from pathlib import Path
         from opportunity import load_snapshot
         snapshot = load_snapshot(Path(__file__).resolve().parent.parent / "data" / "research_snapshot_2026-10-29.json")
-        self.assertEqual(len(snapshot["sourcing_leads"]), 3)
-        self.assertTrue(all(lead["status"] == "DISCOVERY_LEAD_ONLY" for lead in snapshot["sourcing_leads"]))
+        self.assertEqual(len(snapshot["sourcing_leads"]), 5)
+        self.assertTrue(all(lead["status"] in {"DISCOVERY_LEAD_ONLY", "CONTACT_REQUIRED_NOT_VERIFIED"} for lead in snapshot["sourcing_leads"]))
         self.assertTrue(all(lead["quote_verified"] is False for lead in snapshot["sourcing_leads"]))
 
     def test_registry_rejects_sourcing_lead_with_unknown_source(self):
