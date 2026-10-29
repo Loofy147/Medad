@@ -23,6 +23,15 @@ def read_json(path: str | Path) -> dict[str, Any]:
     return value
 
 
+REQUIRED_INPUT_FIELDS = {
+    "product_name", "selling_price", "purchase_cost", "packaging_cost",
+    "outbound_delivery_cost", "delivery_fee_collected", "failed_delivery_return_cost",
+    "return_shipping_cost", "return_handling_cost", "ad_spend", "placed_orders",
+    "delivery_rate", "customer_return_rate", "inventory_recovery_rate",
+    "other_variable_cost_per_retained_order", "other_fixed_costs",
+}
+
+
 def parse_inputs(payload: dict[str, Any]) -> Inputs:
     raw = payload.get("inputs", payload)
     if not isinstance(raw, dict):
@@ -31,6 +40,9 @@ def parse_inputs(payload: dict[str, Any]) -> Inputs:
     unknown = sorted(set(raw) - allowed)
     if unknown:
         raise ValueError(f"Unknown Inputs fields: {unknown}")
+    missing = sorted(REQUIRED_INPUT_FIELDS - set(raw))
+    if missing:
+        raise ValueError(f"Missing explicit economics inputs; defaults are not silently applied: {missing}")
     return Inputs(**raw)
 
 
