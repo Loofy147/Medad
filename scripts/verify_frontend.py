@@ -89,7 +89,7 @@ def main() -> int:
         raise SystemExit("bilingual supplier quote draft must be present and must not claim it was sent")
     if "data-instant-state" not in script or "LOCAL_SESSION_NOT_LIVE" not in script or "local_only:true" not in script:
         raise SystemExit("Instant must record local-only event states and export boundary")
-    if re.search(r"\\bfetch\\s*\\(", script) or "XMLHttpRequest" in script or "new WebSocket" in script:
+    if re.search(r"\bfetch\s*\(", script) or "XMLHttpRequest" in script or "new WebSocket" in script:
         raise SystemExit("browser prototype must not imply or add unreviewed live network integration")
     if not script.strip():
         raise SystemExit("inline JavaScript not found")
