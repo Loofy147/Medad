@@ -26,6 +26,16 @@ The current public snapshot provides weak evidence of asking prices for a few re
 6. [Yalidine — official agency directory](https://www.yalidine.com/nos-agences/) — a source for checking whether an agency/stop desk is listed (including locations in Blida); not a seller-specific price quote, return/refusal fee schedule, service-level agreement, or cash-remittance commitment.
 7. [Algeria Press Service — online payment merchant and transaction update, 2026-08-07](https://www.aps.dz/economie/commerce-et-service/msip5jny-%D8%B9%D8%AF%D8%AF-%D8%A7%D9%84%D8%AA%D8%AC%D8%A7%D8%B1-%D8%A7%D9%84%D8%B0%D9%8A%D9%86-%D9%8A%D9%88%D9%81%D8%B1%D9%88%D9%86-%D8%AE%D8%AF%D9%85%D8%A9-%D8%A7%D9%84%D8%AF%D9%81%D8%B9-%D8%B9%D8%A8%D8%B1-%D8%A7%D9%84%D8%A7%D9%94%D9%84%D9%81) — payment-system context. The reported total includes sectors and public payments beyond retail product demand, so it must not be treated as evidence for any candidate SKU.
 
+## Supplier-discovery leads (not accepted supplier quotes)
+
+The snapshot also records three places to search for supplier leads. These are deliberately stored separately from candidate-level price evidence.
+
+- [Hnaya Source](https://hnaya.me/) states that it indexes wholesale offers posted to public Algerian Telegram channels and offers free browsing of prices while trader contact data is on paid plans. Treat these as searchable leads only. Confirm the exact SKU, publication date, quantity tier, delivery/hand-over costs and supplier identity directly. The [privacy notice](https://hnaya.me/legal), updated 27 October 2026, describes collection of account/search metadata and an IP/device cookie; avoid submitting customer-identifiable images or data.
+- [Kabagros](https://kabagros.com/?prix_fixe=1) displays professional lots, including a plastic storage-box example around 2,890–3,490 DZD per unit with a displayed lot size of 50 and listing age around 75 days when captured. This is not the same SKU as the basket candidate, and it is not a quote for that product. Kabagros describes itself as a direct transaction intermediary, not the seller, carrier or guarantor. Its [legal notice](https://kabagros.com/mentions-legales) had some registration/representative fields marked as incomplete when reviewed; verify directly.
+- [Itidjar](https://itidjar.com/) is a further wholesale-marketplace discovery lead. Its home page contains platform claims (including product/success/coverage metrics) that have not been independently audited. Do not treat those claims as proof that a specific SKU is available or profitable.
+
+No account, paid plan or supplier contact was created through this research. No displayed lot has been promoted to a supplier quote. A supplier quote requires a dated document or message specifying vendor identity, SKU/specification, quantity tier, unit price, availability, payment terms, handover/delivery cost, and validity period.
+
 ## Confidence semantics
 
 - **Observed listing:** a public page showed a claim at capture time. Does not prove availability, accuracy, purchases, demand or supplier terms.
