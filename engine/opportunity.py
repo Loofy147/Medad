@@ -21,7 +21,7 @@ def assess_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
     missing_research = []
     for field, label in REQUIRED_RESEARCH_GATES.items():
         value = candidate.get(field)
-        satisfied = (isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 2) if field == "supplier_quotes_count" else value is True
+        satisfied = (isinstance(value, int) and not isinstance(value, bool) and value >= 2) if field == "supplier_quotes_count" else value is True
         if not satisfied:
             missing_research.append(label)
     missing_test = [label for field, label in REQUIRED_TEST_GATES.items() if candidate.get(field) is not True]
