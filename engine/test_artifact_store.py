@@ -54,7 +54,7 @@ class LocalArtifactByteStoreTests(unittest.TestCase):
         first = self.store.put_bytes(content)
         second = self.store.put_bytes(content, expected_sha256=first["sha256"])
         self.assertEqual(first, second)
-        self.assertEqual(len(list((self.root / "sha256").rglob("*.*"))), 1)
+        self.assertEqual(sum(path.is_file() for path in (self.root / "sha256").rglob("*")), 1)
 
 
 if __name__ == "__main__":
