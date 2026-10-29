@@ -19,9 +19,13 @@ class AuditParser(HTMLParser):
         self.labels: list[str] = []
         self.external_links = 0
         self.errors: list[str] = []
+        self.stack: list[str] = []
 
     def handle_starttag(self, tag, attrs):
         data = dict(attrs)
+        void_tags = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
+        if tag not in void_tags:
+            self.stack.append(tag)
         if data.get("id"):
             self.ids.append(str(data["id"]))
         if tag == "label" and data.get("for"):
@@ -39,6 +43,12 @@ class AuditParser(HTMLParser):
     def handle_endtag(self, tag):
         if tag == "script":
             self.in_script = False
+        if not self.stack:
+            self.errors.append(f"unexpected closing tag: {tag}")
+        elif self.stack[-1] != tag:
+            self.errors.append(f"tag nesting mismatch: closing {tag}, expected {self.stack[-1]}")
+        else:
+            self.stack.pop()
 
     def handle_data(self, data):
         if self.in_script:
@@ -50,6 +60,8 @@ def main() -> int:
     parser = AuditParser()
     parser.feed(html)
     parser.close()
+    if parser.stack:
+        parser.errors.append("unclosed tags: " + ", ".join(parser.stack[-10:]))
     if parser.errors:
         raise SystemExit("HTML checks failed: " + "; ".join(parser.errors))
     dupes = sorted({x for x in parser.ids if parser.ids.count(x) > 1})
@@ -66,6 +78,12 @@ def main() -> int:
     if parser.external_links < 4:
         raise SystemExit("expected sourced product links are missing")
     script = "\n".join(parser.script_parts)
+    if "مرشح لاختبار محدود" in html or "نتيجة افتراضية فقط" not in html:
+        raise SystemExit("client-side calculator must not promote an unverified positive model to test readiness")
+    if "$('cost').value='';" not in script:
+        raise SystemExit("clicking a product must clear unknown supplier cost before unit-economics calculation")
+    if "Hnaya Source" not in html or "Kabagros" not in html or "SVC Corporation" not in html:
+        raise SystemExit("supplier-discovery references are missing from product lab")
     if not script.strip():
         raise SystemExit("inline JavaScript not found")
     with tempfile.NamedTemporaryFile("w", suffix=".js", encoding="utf-8", delete=False) as f:
