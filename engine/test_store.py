@@ -392,7 +392,7 @@ class SQLiteStoreTests(unittest.TestCase):
 
     def test_schema_migration_is_recorded_and_data_survives_reopen(self):
         self.store.put_record(
-            self.analyst, "tasks", "task-1", {"status": "OPEN"}, reason="Create task"
+            self.analyst, "tasks", "task-1", task_payload("task-1"), reason="Create task"
         )
         self.store.close()
         second = SQLiteStore(self.db_path)
@@ -434,7 +434,7 @@ class SQLiteStoreTests(unittest.TestCase):
             with self.assertRaises(AuthorizationError):
                 restricted.put_record(
                     actor("read-only", "reader"), "tasks", "task-2",
-                    {"status": "OPEN"}, reason="Reader cannot write",
+                    task_payload("task-2"), reason="Reader cannot write",
                 )
         finally:
             restricted.close()
