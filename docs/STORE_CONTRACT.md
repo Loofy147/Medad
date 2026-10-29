@@ -24,6 +24,9 @@ The store validates evidence records through the existing decision-kernel contra
 - New records start at revision 1. Updating an existing record requires its exact expected_revision; stale writes fail with StoreConflict. Blind overwrites are rejected.
 - Decision records are append-only: reusing a decision ID fails, and generic record updates cannot modify the decisions collection.
 - Unsupported collections, unknown decision fields, non-JSON values, NaN and Infinity are rejected.
+- commit_run_packet(actor, report, evidence_records, reason=...) atomically validates and saves a decision-run report and the exact evidence manifest it references. It rejects duplicate/mismatched evidence, hash mismatches and conflicting existing evidence. If any item conflicts after earlier inserts, the entire transaction (including audit events) rolls back.
+- Replaying the same run ID with the same stable input/report identity and unchanged evidence is idempotent even if created_at differs. Reusing the run ID with a different identity fails closed. Generic run writes with evidence references are accepted only when those exact evidence hashes already exist; otherwise use the atomic method.
+- The CLI exposes this locally through: python cli.py workflow --input decision-run.json --store-db .medad/medad.sqlite3. The option is opt-in. If --run-journal is also supplied, SQLite and JSONL are separate stores and are not one cross-store transaction.
 - SQLite uses BEGIN IMMEDIATE, a busy timeout and WAL/FULL synchronous mode for file-backed databases. This is still a single-host persistence design; deployments needing multiple hosts should implement the same protocol on a server database with migrations and transactional concurrency tests.
 
 ## Identity and access policy
