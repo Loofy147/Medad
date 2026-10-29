@@ -20,8 +20,10 @@ import uuid
 
 try:
     from decision_kernel import validate_evidence_record
+    from workflow import validate_decision_run_report
 except ModuleNotFoundError:  # support both engine-directory CLI and package imports
     from .decision_kernel import validate_evidence_record
+    from .workflow import validate_decision_run_report
 
 
 STORE_SCHEMA_VERSION = 1
@@ -83,6 +85,7 @@ class AccessPolicy:
         "reader": frozenset({"read"}),
         "analyst": frozenset({
             "read", "write:evidence", "write:runs", "write:tasks", "write:artifacts",
+            "commit:run_packet",
         }),
         "reviewer": frozenset({"read", "record:evidence_review"}),
         "approver": frozenset({"read", "record:stage_decision", "record:risk_acceptance"}),
@@ -104,6 +107,147 @@ class TransactionalStore(Protocol):
         self, actor: Actor, collection: str, record_id: str, payload: dict[str, Any],
         *, expected_revision: int | None = None, reason: str,
     ) -> dict[str, Any]: ...
+
+    def commit_run_packet(
+        self, actor: Actor, report: dict[str, Any], evidence_records: list[dict[str, Any]],
+        *, reason: str,
+    ) -> dict[str, Any]: ...
+
+    def commit_run_packet(
+        self, actor: Actor, report: dict[str, Any], evidence_records: list[dict[str, Any]],
+        *, reason: str,
+    ) -> dict[str, Any]:
+        """Atomically persist a validated analysis report and exactly the evidence it used."""
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("reason must be a non-empty string for the audit record")
+        errors = validate_decision_run_report(report)
+        if errors:
+            raise ValueError(f"decision-run contract violations: {errors}")
+        manifest = report["run_manifest"]
+        run_id = self._validate_record_id(manifest["run_id"], "run_id")
+        if not isinstance(evidence_records, list):
+            raise ValueError("evidence_records must be an array")
+        if any(not isinstance(item, dict) for item in evidence_records):
+            raise ValueError("every evidence record must be an object")
+
+        normalized: dict[str, tuple[dict[str, Any], str, str]] = {}
+        for item in evidence_records:
+            evidence_id = self._validate_record_id(item.get("evidence_id"), "evidence_id")
+            if evidence_id in normalized:
+                raise ValueError(f"duplicate evidence_id in run packet: {evidence_id!r}")
+            _validate_collection_payload("evidence", evidence_id, item)
+            payload_json = _canonical(item).decode("utf-8")
+            content_hash = sha256(payload_json.encode("utf-8")).hexdigest()
+            normalized[evidence_id] = (item, payload_json, content_hash)
+
+        expected_manifest = [
+            {"evidence_id": evidence_id, "content_hash": normalized[evidence_id][2]}
+            for evidence_id in sorted(normalized)
+        ]
+        actual_manifest = report["provenance_summary"]["evidence_manifest"]
+        if actual_manifest != expected_manifest:
+            raise ValueError("supplied evidence records do not match the report evidence_manifest")
+        if report["provenance_summary"]["evidence_record_count"] != len(normalized):
+            raise ValueError("evidence record count does not match the supplied evidence records")
+
+        run_payload_json = _canonical(report).decode("utf-8")
+        run_content_hash = sha256(run_payload_json.encode("utf-8")).hexdigest()
+        self._require_permission(
+            actor, "commit:run_packet", "runs", run_id,
+            reason=f"Commit decision run packet: {reason}",
+        )
+
+        with self._transaction() as connection:
+            existing_run = connection.execute(
+                "SELECT * FROM records WHERE collection = 'runs' AND record_id = ?",
+                (run_id,),
+            ).fetchone()
+            if existing_run is not None:
+                if existing_run["content_hash"] != run_content_hash:
+                    raise StoreConflict(
+                        f"run_id {run_id!r} already exists with different report content"
+                    )
+                # A prior run is idempotent only if all of its referenced evidence still exists unchanged.
+                for evidence_id, (_, _, content_hash) in normalized.items():
+                    current_evidence = connection.execute(
+                        "SELECT content_hash FROM records WHERE collection = 'evidence' AND record_id = ?",
+                        (evidence_id,),
+                    ).fetchone()
+                    if current_evidence is None or current_evidence["content_hash"] != content_hash:
+                        raise StoreConflict(
+                            f"existing run {run_id!r} has missing or changed evidence {evidence_id!r}"
+                        )
+                evidence_rows = [
+                    self._record_from_row(connection.execute(
+                        "SELECT * FROM records WHERE collection = 'evidence' AND record_id = ?",
+                        (evidence_id,),
+                    ).fetchone())
+                    for evidence_id in sorted(normalized)
+                ]
+                return {
+                    "run": self._record_from_row(existing_run),
+                    "evidence": evidence_rows,
+                    "inserted": False,
+                    "reason": "IDEMPOTENT_REPLAY",
+                }
+
+            evidence_rows: list[dict[str, Any]] = []
+            now = _utc_now()
+            for evidence_id in sorted(normalized):
+                payload, payload_json, content_hash = normalized[evidence_id]
+                existing = connection.execute(
+                    "SELECT * FROM records WHERE collection = 'evidence' AND record_id = ?",
+                    (evidence_id,),
+                ).fetchone()
+                if existing is not None:
+                    if existing["content_hash"] != content_hash:
+                        raise StoreConflict(
+                            f"evidence_id {evidence_id!r} already exists with different content; "
+                            "a run packet cannot silently replace evidence"
+                        )
+                    evidence_rows.append(self._record_from_row(existing))
+                    continue
+
+                connection.execute(
+                    "INSERT INTO records(collection, record_id, revision, payload_json, content_hash, "
+                    "created_at, updated_at, updated_by) VALUES ('evidence', ?, 1, ?, ?, ?, ?, ?)",
+                    (evidence_id, payload_json, content_hash, now, now, actor.subject_id),
+                )
+                self._append_audit(
+                    connection, actor, "write:evidence", "evidence", evidence_id,
+                    "CREATED", reason, {"revision": 1, "content_hash": content_hash, "via_run_id": run_id},
+                )
+                row = connection.execute(
+                    "SELECT * FROM records WHERE collection = 'evidence' AND record_id = ?",
+                    (evidence_id,),
+                ).fetchone()
+                evidence_rows.append(self._record_from_row(row))
+
+            connection.execute(
+                "INSERT INTO records(collection, record_id, revision, payload_json, content_hash, "
+                "created_at, updated_at, updated_by) VALUES ('runs', ?, 1, ?, ?, ?, ?, ?)",
+                (run_id, run_payload_json, run_content_hash, now, now, actor.subject_id),
+            )
+            self._append_audit(
+                connection, actor, "commit:run_packet", "runs", run_id, "COMMITTED", reason,
+                {
+                    "case_id": manifest["case_id"],
+                    "input_hash": manifest["input_hash"],
+                    "report_hash": manifest["report_hash"],
+                    "evidence_manifest": expected_manifest,
+                    "evidence_count": len(expected_manifest),
+                },
+            )
+            stored_run = connection.execute(
+                "SELECT * FROM records WHERE collection = 'runs' AND record_id = ?",
+                (run_id,),
+            ).fetchone()
+            return {
+                "run": self._record_from_row(stored_run),
+                "evidence": evidence_rows,
+                "inserted": True,
+                "reason": "COMMITTED",
+            }
 
     def get_record(self, actor: Actor, collection: str, record_id: str) -> dict[str, Any] | None: ...
 
@@ -157,26 +301,12 @@ def _validate_collection_payload(collection: str, record_id: str, payload: dict[
         return
 
     if collection == "runs":
-        if payload.get("schema_version") != "medad.decision-run.v1":
-            raise ValueError("run record schema_version must be medad.decision-run.v1")
         manifest = payload.get("run_manifest")
-        decision = payload.get("decision")
-        if not isinstance(manifest, dict) or not isinstance(decision, dict):
-            raise ValueError("run record requires run_manifest and decision objects")
-        if manifest.get("run_id") != record_id:
+        if not isinstance(manifest, dict) or manifest.get("run_id") != record_id:
             raise ValueError("run_manifest.run_id must match the storage record_id")
-        for field_name in ("case_id", "code_revision", "input_hash", "report_hash"):
-            value = manifest.get(field_name)
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError(f"run_manifest.{field_name} is required")
-        for field_name in ("input_hash", "report_hash"):
-            digest = manifest[field_name]
-            if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest.lower()):
-                raise ValueError(f"run_manifest.{field_name} must be a 64-character hexadecimal digest")
-        if manifest.get("mode") != "ANALYSIS_ONLY_NO_EXTERNAL_SIDE_EFFECTS":
-            raise ValueError("run record mode must be analysis-only")
-        if decision.get("authorization_granted") is not False:
-            raise ValueError("run decision.authorization_granted must be false")
+        errors = validate_decision_run_report(payload)
+        if errors:
+            raise ValueError(f"decision-run contract violations: {errors}")
         return
 
     if collection == "artifacts":
@@ -400,6 +530,16 @@ class SQLiteStore:
                 "SELECT * FROM records WHERE collection = ? AND record_id = ?",
                 (collection, record_id),
             ).fetchone()
+            if collection == "runs":
+                for item in payload["provenance_summary"]["evidence_manifest"]:
+                    referenced = connection.execute(
+                        "SELECT content_hash FROM records WHERE collection = 'evidence' AND record_id = ?",
+                        (item["evidence_id"],),
+                    ).fetchone()
+                    if referenced is None or referenced["content_hash"] != item["content_hash"]:
+                        raise ValueError(
+                            "run packet evidence is missing or changed; use commit_run_packet for atomic persistence"
+                        )
             now = _utc_now()
             if current is None:
                 if expected_revision not in (None, 0):
