@@ -485,8 +485,6 @@ class SQLiteStore:
                 "SELECT * FROM records WHERE collection = ? AND record_id = ?",
                 (collection, record_id),
             ).fetchone()
-            if collection == "tasks":
-                _validate_task_persistence(connection, record_id, payload, current)
             if collection == "runs":
                 for item in payload["provenance_summary"]["evidence_manifest"]:
                     referenced = connection.execute(
@@ -501,6 +499,8 @@ class SQLiteStore:
             if current is None:
                 if expected_revision not in (None, 0):
                     raise StoreConflict("cannot update a record that does not exist")
+                if collection == "tasks":
+                    _validate_task_persistence(connection, record_id, payload, None)
                 connection.execute(
                     "INSERT INTO records(collection, record_id, revision, payload_json, content_hash, "
                     "created_at, updated_at, updated_by) VALUES (?, ?, 1, ?, ?, ?, ?, ?)",
@@ -516,6 +516,8 @@ class SQLiteStore:
                     )
                 if current["content_hash"] == payload_hash:
                     return self._record_from_row(current)
+                if collection == "tasks":
+                    _validate_task_persistence(connection, record_id, payload, current)
                 revision = current["revision"] + 1
                 created_at = current["created_at"]
                 connection.execute(
