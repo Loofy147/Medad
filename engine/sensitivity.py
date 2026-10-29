@@ -24,6 +24,8 @@ def _profit(inputs: Inputs) -> float:
 
 def sensitivity_report(base: Inputs, shocks: dict[str, tuple[float, float, float, str]] | None = None) -> dict[str, Any]:
     """Run one-factor-at-a-time scenarios from the same baseline, preserving all other inputs."""
+    from engine import _validate
+    _validate(base)
     shock_set = shocks or DEFAULT_SHOCKS
     baseline = evaluate(base)
     base_profit = baseline["economics_dzd"]["estimated_profit"]
