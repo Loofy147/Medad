@@ -41,6 +41,8 @@ def validate_event(event: dict[str, Any]) -> list[str]:
     if not isinstance(event.get("state"), str) or event["state"] not in EVENT_STATES:
         errors.append(f"state must be one of {sorted(EVENT_STATES)}")
     for field in ("source_refs", "evidence_refs", "tags", "invariants", "recovery_actions"):
+        if field not in event:
+            errors.append(f"{field} is required")
         value = event.get(field, [])
         if not isinstance(value, list):
             errors.append(f"{field} must be an array")
@@ -58,8 +60,23 @@ def validate_event(event: dict[str, Any]) -> list[str]:
             errors.append("context.subject_id must match subject_id")
         if not isinstance(event["context"].get("snapshot_hash"), str) or not event["context"]["snapshot_hash"].strip():
             errors.append("context.snapshot_hash is required")
+        if event["context"].get("mode") not in {"LOCAL_ONLY", "LOCAL_ECONOMICS_SNAPSHOT", "LOCAL_EVENT_TRANSITION"}:
+            errors.append("context.mode is invalid for this local prototype")
     if isinstance(event.get("propagation"), dict) and event["propagation"].get("mode") != "LOCAL_ONLY":
         errors.append("this prototype only supports LOCAL_ONLY propagation")
+    if isinstance(event.get("state_delta"), dict):
+        prior = event["state_delta"].get("from")
+        if prior is not None and prior not in EVENT_STATES:
+            errors.append("state_delta.from must be null or a known event state")
+    if any(action not in EVENT_STATES for action in event.get("recovery_actions", []) if isinstance(action, str)):
+        errors.append("recovery_actions contains an unknown event state")
+    if event.get("event_type") == "EVENT_STATE_TRANSITION":
+        if event.get("action_kind") != "STATE_TRANSITION":
+            errors.append("state-transition events require action_kind=STATE_TRANSITION")
+        if not isinstance(event.get("previous_event_id"), str) or not isinstance(event.get("actor"), str) or not isinstance(event.get("reason"), str):
+            errors.append("state-transition events require previous_event_id, actor and reason")
+    elif event.get("action_kind") == "STATE_TRANSITION":
+        errors.append("only EVENT_STATE_TRANSITION may use action_kind=STATE_TRANSITION")
     try:
         _canonical(event)
     except (TypeError, ValueError):
