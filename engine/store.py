@@ -314,9 +314,9 @@ class SQLiteStore:
         if not isinstance(reason, str) or not reason.strip():
             raise ValueError("reason must be a non-empty string for the audit record")
         if expected_revision is not None and (
-            isinstance(expected_revision, bool) or not isinstance(expected_revision, int) or expected_revision < 1
+            isinstance(expected_revision, bool) or not isinstance(expected_revision, int) or expected_revision < 0
         ):
-            raise ValueError("expected_revision must be a positive integer when supplied")
+            raise ValueError("expected_revision must be a non-negative integer when supplied")
         if not isinstance(payload, dict):
             raise ValueError("payload must be an object")
         try:
