@@ -296,9 +296,18 @@ def validate_decision_run_report(report: Any) -> list[str]:
     if not isinstance(provenance, dict):
         return errors + ["provenance_summary must be an object"]
 
-    for field in ("run_id", "case_id", "code_revision", "input_hash", "report_hash", "mode"):
+    for field in ("run_id", "case_id", "observed_at", "code_revision", "runtime", "input_hash", "report_hash", "mode"):
         if not isinstance(manifest.get(field), str) or not manifest[field].strip():
             errors.append(f"run_manifest.{field} is required")
+    if not isinstance(manifest.get("run_note", ""), str):
+        errors.append("run_manifest.run_note must be a string")
+    if isinstance(manifest.get("observed_at"), str):
+        try:
+            observed_dt = _aware_timestamp(manifest["observed_at"], "run_manifest.observed_at")
+            if observed_dt > datetime.now(timezone.utc):
+                errors.append("run_manifest.observed_at cannot be in the future")
+        except ValueError as exc:
+            errors.append(str(exc))
     if manifest.get("mode") != "ANALYSIS_ONLY_NO_EXTERNAL_SIDE_EFFECTS":
         errors.append("run_manifest.mode must be analysis-only")
     for field in ("input_hash", "report_hash"):
