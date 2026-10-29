@@ -1,0 +1,57 @@
+# Algerian Product Research Snapshot
+
+**Snapshot date:** 2026-10-29  
+**Scope:** Public seller listings, market context, and logistics availability. This is not a supplier audit, demand study, or investment recommendation.
+
+## Executive result
+
+The current public snapshot provides weak evidence of asking prices for a few retail listings. It does not establish realized sales, product-level demand, wholesale cost, landed cost, advertising CAC, delivery/refusal rates, or profit. All four candidates therefore remain `RESEARCH_ONLY` in `data/research_snapshot_2026-10-29.json`. No product is investment-ready.
+
+## Candidate observations
+
+| Candidate | Public observation captured | Interpretation | Missing gate |
+|---|---|---|---|
+| Car-seat gap organizer | A single Ouedkniss listing showed 4,500 DZD and 1,514 views; listing dated 2026-09-25 | Listing attention is a weak interest proxy, not purchase evidence | Comparable supplier quotes, sample, courier terms, paid test, order cohort |
+| Car phone holder | Ouedkniss results included examples from 650 to 6,000 DZD across different models/brands | Not a like-for-like price range; multiple competing offers suggest differentiation must be tested | Like-for-like SKU, wholesale quote, quality checks, campaign and delivered-order data |
+| Four-compartment bathroom basket | Ouedkniss results showed examples around 1,900–2,500 DZD, with displayed listing ages around 7–8 months | Stale price signal; refresh before using | Current listings, supplier quotes, dimensional/packaging cost, demand data |
+| Screen-cleaning spray/brush kit | One Ouedkniss search result showed an 800 DZD asking price | Unit price may be too low to absorb acquisition and COD costs as a single-item offer; test a bundle only after sourcing | Wholesale price, quality sample, bundle economics, CAC and delivery outcomes |
+
+### Sources reviewed
+
+1. [Ouedkniss — Maxwell Drive Vault car-seat organizer](https://www.ouedkniss.com/autres-accessoires-maxwell-remplisseur-de-siege-voiture-avec-porte-charge-universel-organisateur-dely-brahim-hydra-kouba-alger-algerie-d47178119) — the listing displayed 4,500 DZD, 1,514 views, and a 2026-09-25 listing date at review time. The site's own disclaimer says the displayed item/service belongs to the advertiser and Ouedkniss is not responsible for it.
+2. [Ouedkniss — car phone-holder results](https://www.ouedkniss.com/s/?keywords=support-voiture&lang=fr) — listing asks included examples such as 650, 800, 900, 1,200, 1,500, 2,400, 2,900, 5,500 and 6,000 DZD for different items. The figures are not comparable SKUs and are not sale prices.
+3. [Ouedkniss — home storage results](https://www.ouedkniss.com/maison/2?keywords=rangements&lang=fr) — examples included four-compartment woven storage baskets around 1,900–2,500 DZD in older listings.
+4. [Ouedkniss — cleaning brush results](https://www.ouedkniss.com/s/?keywords=brosse-nettoyage&lang=fr) — one screen-cleaning spray/brush kit listing was shown at 800 DZD; a separate low-price three-brush set was shown at 250 DZD. These are retail asks, not wholesale quotes.
+5. [UNCTAD — Algeria: eTrade Readiness Assessment](https://unctad.org/publication/algeria-etrade-readiness-assessment) — broad ecosystem context, including the historical importance of cash-on-delivery. It is not product-level demand evidence; individual metrics correspond to the report's stated periods.
+6. [Yalidine — official agency directory](https://www.yalidine.com/nos-agences/) — a source for checking whether an agency/stop desk is listed (including locations in Blida); not a seller-specific price quote, return/refusal fee schedule, service-level agreement, or cash-remittance commitment.
+7. [Algeria Press Service — online payment merchant and transaction update, 2026-08-07](https://www.aps.dz/economie/commerce-et-service/msip5jny-%D8%B9%D8%AF%D8%AF-%D8%A7%D9%84%D8%AA%D8%AC%D8%A7%D8%B1-%D8%A7%D9%84%D8%B0%D9%8A%D9%86-%D9%8A%D9%88%D9%81%D8%B1%D9%88%D9%86-%D8%AE%D8%AF%D9%85%D8%A9-%D8%A7%D9%84%D8%AF%D9%81%D8%B9-%D8%B9%D8%A8%D8%B1-%D8%A7%D9%84%D8%A7%D9%94%D9%84%D9%81) — payment-system context. The reported total includes sectors and public payments beyond retail product demand, so it must not be treated as evidence for any candidate SKU.
+
+## Confidence semantics
+
+- **Observed listing:** a public page showed a claim at capture time. Does not prove availability, accuracy, purchases, demand or supplier terms.
+- **Official market context:** useful for operating environment, not product-level demand.
+- **Supplier quote:** only accepted after saving the supplier identity, date, SKU/specification, quantity tier, delivery/Incoterm or domestic handover details, payment terms and validity period.
+- **Courier quote:** must reflect seller account, origin, destination/wilaya, home vs stop desk, COD handling, outbound delivery, failed delivery/return, remittance timing and any surcharges.
+- **Campaign observation:** must state platform, dates, spend, creative, attributed placed orders and attribution method.
+- **Order cohort:** must reconcile placed, confirmed, dispatched, delivered, refused/failed, customer-returned and retained orders from a stated cohort and date window.
+
+A listing price and an official market report are not interchangeable forms of evidence. Do not infer local demand from global trends, views, likes, listing counts or payment-system growth.
+
+## Gate before stock purchase
+
+A candidate is not ready for inventory purchase until all of the following are documented and reviewable:
+
+1. Exact product specification and an inspected sample.
+2. At least two comparable supplier quotes.
+3. Landed cost, minimum order, defect allowance and inventory recovery assumptions.
+4. Seller-specific courier terms for outbound, refused, returned and remitted orders.
+5. Unit economics in downside/base/upside cases, including an explicit “cannot break even even with zero ad spend” state.
+6. A capped pilot budget, owner, duration and stop conditions.
+7. Real pilot metrics and reconciled delivered/retained-order results.
+8. Written approval of stock cap, cash exposure, role split, profit definition, return-loss allocation and partner settlement rules.
+
+Even after these gates, a candidate can only be **eligible for a human scale review**; it is never an automatic guarantee of profit.
+
+## Revalidation
+
+This snapshot is a dated observation, not a live feed. Before relying on a listing, reopen it and record whether it remains available, its current price, product variant, and review timestamp. Refresh retail comparisons at the start of each decision cycle. A stale or unavailable source should be marked stale rather than silently reused.
