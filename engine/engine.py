@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import date
 from typing import Any
 import json
 
@@ -63,7 +64,6 @@ def _validate(x: Inputs) -> None:
     for source, score in (x.confidence or {}).items():
         if not isinstance(score, (int, float)) or isinstance(score, bool) or not 0 <= score <= 1:
             raise ValueError(f"confidence[{source!r}] must be between 0 and 1")
-    from datetime import date
     for source, details in (x.evidence_sources or {}).items():
         if not isinstance(details, dict):
             raise ValueError(f"evidence_sources[{source!r}] must be an object")
@@ -74,9 +74,11 @@ def _validate(x: Inputs) -> None:
         if not isinstance(observed_on, str):
             raise ValueError(f"evidence_sources[{source!r}].observed_on must be YYYY-MM-DD")
         try:
-            date.fromisoformat(observed_on)
+            parsed_date = date.fromisoformat(observed_on)
         except ValueError as exc:
             raise ValueError(f"evidence_sources[{source!r}].observed_on must be YYYY-MM-DD") from exc
+        if parsed_date > date.today():
+            raise ValueError(f"evidence_sources[{source!r}].observed_on cannot be in the future")
         if details.get("label") not in VALID_EVIDENCE:
             raise ValueError(f"evidence_sources[{source!r}].label must be one of {sorted(VALID_EVIDENCE)}")
         declared_label = (x.evidence or {}).get(source)
@@ -87,28 +89,33 @@ def _validate(x: Inputs) -> None:
 def assess_data_quality(x: Inputs) -> dict[str, Any]:
     scores = x.confidence or {}
     evidence = x.evidence or {}
-    if not scores and not evidence and x.sample_size is None and x.data_age_days is None:
+    provenance = x.evidence_sources or {}
+    if not scores and not evidence and not provenance and x.sample_size is None and x.data_age_days is None:
         return {"score": None, "grade": "UNKNOWN", "coverage": 0.0,
                 "note": "No evidence metadata supplied; forecasts are unverified."}
     evidence_weights = {"observed": 1.0, "quoted": 0.8, "estimated": 0.45, "assumed": 0.15}
     components: list[float] = list(scores.values())
     components.extend(evidence_weights[v] for v in evidence.values())
     confidence_score = sum(components) / len(components) if components else 0.0
+    # Derive the oldest source age from observed_on. A user-supplied age may not make stale sources look fresh.
+    source_ages = [(date.today() - date.fromisoformat(item["observed_on"])).days
+                   for item in provenance.values() if isinstance(item, dict) and isinstance(item.get("observed_on"), str)]
+    ages = source_ages + ([x.data_age_days] if x.data_age_days is not None else [])
+    effective_age = max(ages) if ages else None
     # Unknown freshness and sample size reduce, rather than improve, evidence quality.
-    freshness = 0.4 if x.data_age_days is None else max(0.0, 1.0 - x.data_age_days / 180.0)
+    freshness = 0.4 if effective_age is None else max(0.0, 1.0 - effective_age / 180.0)
     sample_factor = 0.25 if x.sample_size is None else min(1.0, x.sample_size / 100.0)
     score = confidence_score * (0.75 + 0.25 * freshness) * (0.75 + 0.25 * sample_factor)
     expected_groups = {"unit_cost", "selling_price", "delivery_rate", "return_rate", "ad_cost"}
     observed_groups = set(scores) | set(evidence)
     coverage = len(expected_groups.intersection(observed_groups)) / len(expected_groups)
-    provenance = x.evidence_sources or {}
     provenance_groups = {key for key, detail in provenance.items()
         if isinstance(detail, dict) and detail.get("url") and detail.get("observed_on")
         and detail.get("label") in VALID_EVIDENCE}
     provenance_coverage = len(expected_groups.intersection(provenance_groups)) / len(expected_groups)
     has_assumptions = any(v == "assumed" for v in evidence.values())
     has_usable_sample = x.sample_size is not None and x.sample_size >= 30
-    has_freshness = x.data_age_days is not None and x.data_age_days <= 90
+    has_freshness = effective_age is not None and effective_age <= 90
     grade = "HIGH" if score >= 0.8 and coverage >= 0.8 and provenance_coverage >= 0.8 and has_usable_sample and has_freshness and not has_assumptions else "MEDIUM" if score >= 0.55 and coverage >= 0.4 and provenance_coverage >= 0.4 and has_usable_sample and has_freshness else "LOW"
     if provenance_coverage == 0:
         grade = "LOW"  # Numeric confidence without traceable sources cannot earn a higher evidence grade.
@@ -119,15 +126,15 @@ def assess_data_quality(x: Inputs) -> dict[str, Any]:
         warnings.append("Source URL, observation date, and evidence label are missing for some or all input groups.")
     if x.sample_size is None or x.sample_size < 30:
         warnings.append("Observed sample size is absent or small.")
-    if x.data_age_days is None or x.data_age_days > 90:
-        warnings.append("Freshness is unknown or data is older than 90 days.")
+    if effective_age is None or effective_age > 90:
+        warnings.append("Source freshness is unknown or at least one evidence source is older than 90 days.")
     if any(v == "assumed" for v in evidence.values()):
         warnings.append("One or more inputs are assumptions, not verified evidence.")
     return {
         "score": round(score, 4), "grade": grade, "coverage": round(coverage, 4),
         "provenance_coverage": round(provenance_coverage, 4), "components": scores,
         "evidence_labels": evidence, "evidence_sources": provenance, "sample_size": x.sample_size,
-        "data_age_days": x.data_age_days, "warnings": warnings,
+        "data_age_days": effective_age, "warnings": warnings,
         "note": "Heuristic evidence-quality indicator, not a statistical probability of profit or success.",
     }
 
