@@ -260,48 +260,71 @@ def assess_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
 def load_snapshot(path: str | Path) -> dict[str, Any]:
     with Path(path).open("r", encoding="utf-8") as file:
         snapshot = json.load(file)
+    if not isinstance(snapshot, dict):
+        raise ValueError("Snapshot root must be a JSON object")
+    if not _nonblank(snapshot.get("snapshot_id")):
+        raise ValueError("snapshot_id is required")
+    if not _valid_date(snapshot.get("captured_at")):
+        raise ValueError("captured_at must be a valid non-future YYYY-MM-DD date")
 
+    source_records = snapshot.get("sources", [])
+    if not isinstance(source_records, list):
+        raise ValueError("sources must be an array")
     source_ids: set[str] = set()
-    for source in snapshot.get("sources", []):
+    for source in source_records:
+        if not isinstance(source, dict):
+            raise ValueError("Every source record must be a JSON object")
         source_id = source.get("id")
-        if not source_id or source_id in source_ids:
+        if not _nonblank(source_id) or source_id in source_ids:
             raise ValueError(f"Missing or duplicate source id: {source_id!r}")
         source_ids.add(source_id)
         url = source.get("url", "")
         if not isinstance(url, str) or not url.startswith("https://"):
             raise ValueError(f"Source {source_id!r} must use an HTTPS URL")
 
+    candidate_records = snapshot.get("candidates", [])
+    if not isinstance(candidate_records, list):
+        raise ValueError("candidates must be an array")
     candidate_ids: set[str] = set()
-    for item in snapshot.get("candidates", []):
+    for item in candidate_records:
+        if not isinstance(item, dict):
+            raise ValueError("Every candidate record must be a JSON object")
         candidate_id = item.get("id")
-        if not candidate_id or candidate_id in candidate_ids:
+        if not _nonblank(candidate_id) or candidate_id in candidate_ids:
             raise ValueError(f"Missing or duplicate candidate id: {candidate_id!r}")
         candidate_ids.add(candidate_id)
         refs = item.get("source_ids", [])
-        if not refs:
-            raise ValueError(f"Candidate {candidate_id!r} must cite at least one source")
+        if not isinstance(refs, list) or not refs or any(not _nonblank(source_id) for source_id in refs):
+            raise ValueError(f"Candidate {candidate_id!r} must cite an array of source IDs")
         for source_id in refs:
             if source_id not in source_ids:
                 raise ValueError(f"Candidate {candidate_id!r} references unknown source {source_id!r}")
 
+    leads = snapshot.get("sourcing_leads", [])
+    if not isinstance(leads, list):
+        raise ValueError("sourcing_leads must be an array")
     lead_ids: set[str] = set()
-    for lead in snapshot.get("sourcing_leads", []):
+    for lead in leads:
+        if not isinstance(lead, dict):
+            raise ValueError("Every sourcing lead must be a JSON object")
         lead_id = lead.get("id")
         if not _nonblank(lead_id) or lead_id in lead_ids:
             raise ValueError(f"Missing or duplicate sourcing lead id: {lead_id!r}")
         lead_ids.add(lead_id)
-        linked_ids = [lead.get("platform_source_id"), *lead.get("due_diligence_source_ids", [])]
-        if not linked_ids or any(source_id not in source_ids for source_id in linked_ids):
+        due_refs = lead.get("due_diligence_source_ids", [])
+        if not isinstance(due_refs, list):
+            raise ValueError(f"Sourcing lead {lead_id!r} due_diligence_source_ids must be an array")
+        linked_ids = [lead.get("platform_source_id"), *due_refs]
+        if any(not _nonblank(source_id) or source_id not in source_ids for source_id in linked_ids):
             raise ValueError(f"Sourcing lead {lead_id!r} references unknown source ids")
-        # Discovery platforms must never masquerade as supplier quotes.
-        if lead.get("quote_verified") is True:
-            raise ValueError(f"Sourcing lead {lead_id!r} cannot itself verify a supplier quote; record quote artifacts on a candidate")
+        # A discovery record must never masquerade as a received/verified supplier quote.
+        if lead.get("quote_verified") is not False:
+            raise ValueError(f"Sourcing lead {lead_id!r} must set quote_verified=false; store actual quote artifacts against a candidate")
 
-    snapshot["readiness"] = [assess_candidate(item) for item in snapshot.get("candidates", [])]
-    snapshot["sourcing_lead_count"] = len(snapshot.get("sourcing_leads", []))
-    snapshot["verified_supplier_quote_count"] = sum(len(_valid_supplier_quotes(item)) for item in snapshot.get("candidates", []))
+    snapshot["readiness"] = [assess_candidate(item) for item in candidate_records]
+    snapshot["sourcing_lead_count"] = len(leads)
+    snapshot["verified_supplier_quote_count"] = sum(len(_valid_supplier_quotes(item)) for item in candidate_records)
     return snapshot
-
 
 if __name__ == "__main__":
     import argparse
