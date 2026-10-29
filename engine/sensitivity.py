@@ -2,9 +2,25 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Any, Callable
+from math import isfinite
+from typing import Any
 from engine import Inputs, evaluate
 
+
+NUMERIC_SHOCK_FIELDS = {
+    "selling_price", "purchase_cost", "packaging_cost", "outbound_delivery_cost",
+    "delivery_fee_collected", "failed_delivery_return_cost", "return_shipping_cost",
+    "return_handling_cost", "ad_spend", "placed_orders", "delivery_rate",
+    "customer_return_rate", "inventory_recovery_rate",
+    "other_variable_cost_per_retained_order", "other_fixed_costs",
+}
+INTEGER_FIELDS = {"placed_orders"}
+CONTINUOUS_THRESHOLD_FIELDS = {
+    "selling_price", "purchase_cost", "packaging_cost", "outbound_delivery_cost",
+    "delivery_fee_collected", "failed_delivery_return_cost", "return_shipping_cost",
+    "return_handling_cost", "ad_spend", "inventory_recovery_rate",
+    "other_variable_cost_per_retained_order", "other_fixed_costs",
+}
 
 DEFAULT_SHOCKS: dict[str, tuple[float, float, float, str]] = {
     # (low shock, central shock, high shock, mode)
@@ -26,23 +42,30 @@ def sensitivity_report(base: Inputs, shocks: dict[str, tuple[float, float, float
     """Run one-factor-at-a-time scenarios from the same baseline, preserving all other inputs."""
     from engine import _validate
     _validate(base)
-    shock_set = shocks or DEFAULT_SHOCKS
+    shock_set = DEFAULT_SHOCKS if shocks is None else shocks
     baseline = evaluate(base)
     base_profit = baseline["economics_dzd"]["estimated_profit"]
     factors = []
     input_values = asdict(base)
     for field, spec in shock_set.items():
-        if field not in input_values:
-            raise ValueError(f"Unknown sensitivity field: {field}")
-        if len(spec) != 4:
+        if field not in NUMERIC_SHOCK_FIELDS:
+            raise ValueError(f"Field is not supported for sensitivity: {field}")
+        if not isinstance(spec, (tuple, list)) or len(spec) != 4:
             raise ValueError(f"Shock for {field!r} must be (low, central, high, mode)")
         low_shock, central_shock, high_shock, mode = spec
         if mode not in {"multiply", "add"}:
             raise ValueError(f"Unsupported shock mode: {mode!r}")
+        if any(not isinstance(value, (int, float)) or isinstance(value, bool) or not isfinite(value) for value in (low_shock, central_shock, high_shock)):
+            raise ValueError(f"Shock values for {field!r} must be finite numbers")
+        neutral = 1.0 if mode == "multiply" else 0.0
+        if central_shock != neutral:
+            raise ValueError(f"Central shock for {field!r} must be neutral ({neutral}) so the base is comparable")
         values = []
         for label, shock in (("low", low_shock), ("central", central_shock), ("high", high_shock)):
             value = float(getattr(base, field))
             changed = value * shock if mode == "multiply" else value + shock
+            if field in INTEGER_FIELDS:
+                changed = int(round(changed))
             if field in {"delivery_rate", "customer_return_rate", "inventory_recovery_rate"}:
                 changed = min(1.0, max(0.0, changed))
             elif changed < 0:
@@ -95,10 +118,12 @@ def find_profit_threshold(
     iterations: int = 80,
 ) -> dict[str, Any]:
     """Find a numeric input threshold by bisection when a monotonic bracket exists."""
-    if field not in asdict(base):
-        raise ValueError(f"Unknown input field: {field}")
-    if not (isinstance(low, (int, float)) and isinstance(high, (int, float)) and low < high):
-        raise ValueError("low and high must be numeric and low < high")
+    if field not in CONTINUOUS_THRESHOLD_FIELDS:
+        raise ValueError(f"Field is not a supported continuous monotonic threshold input: {field}")
+    if not (isinstance(low, (int, float)) and not isinstance(low, bool) and isfinite(low) and isinstance(high, (int, float)) and not isinstance(high, bool) and isfinite(high) and low < high):
+        raise ValueError("low and high must be finite numeric values and low < high")
+    if not isinstance(target_profit_dzd, (int, float)) or isinstance(target_profit_dzd, bool) or not isfinite(target_profit_dzd):
+        raise ValueError("target_profit_dzd must be finite")
     if field in {"delivery_rate", "customer_return_rate", "inventory_recovery_rate"} and (low < 0 or high > 1):
         raise ValueError(f"{field} bounds must be within [0, 1]")
     if field in {"selling_price", "purchase_cost", "packaging_cost", "outbound_delivery_cost",
@@ -108,8 +133,8 @@ def find_profit_threshold(
         raise ValueError(f"{field} bounds must be non-negative")
     if profitable_when not in {"at_or_above", "at_or_below"}:
         raise ValueError("profitable_when must be 'at_or_above' or 'at_or_below'")
-    if iterations < 1 or iterations > 200:
-        raise ValueError("iterations must be between 1 and 200")
+    if not isinstance(iterations, int) or isinstance(iterations, bool) or iterations < 1 or iterations > 200:
+        raise ValueError("iterations must be an integer between 1 and 200")
 
     def score(value: float) -> float:
         raw = asdict(base)
