@@ -103,6 +103,32 @@ class CliTests(unittest.TestCase):
             self.assertFalse(report["decision"]["authorization_granted"])
             self.assertEqual(report["run_manifest"]["mode"], "ANALYSIS_ONLY_NO_EXTERNAL_SIDE_EFFECTS")
 
+    def test_workflow_cli_optional_journal_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "run.json"
+            journal_path = Path(directory) / "decision-runs.jsonl"
+            payload = {
+                "schema_version": "medad.decision-run.v1",
+                "run_id": "cli-journal-run",
+                "case_id": "cli-journal-case",
+                "observed_at": datetime.now(timezone.utc).isoformat(),
+                "code_revision": "test-revision",
+                "inputs": SYNTHETIC_INPUTS,
+            }
+            input_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            command = [
+                sys.executable, str(ENGINE_DIR / "cli.py"), "workflow",
+                "--input", str(input_path), "--run-journal", str(journal_path),
+            ]
+            first = subprocess.run(command, cwd=ENGINE_DIR, capture_output=True, text=True, check=False)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertTrue(json.loads(first.stdout)["journal_result"]["inserted"])
+
+            second = subprocess.run(command, cwd=ENGINE_DIR, capture_output=True, text=True, check=False)
+            self.assertEqual(second.returncode, 0, second.stderr)
+            self.assertFalse(json.loads(second.stdout)["journal_result"]["inserted"])
+            self.assertEqual(len(journal_path.read_text(encoding="utf-8").splitlines()), 1)
+
     def test_sensitivity_command_returns_limitation_and_factors(self):
         with tempfile.TemporaryDirectory() as directory:
             input_path = Path(directory) / "inputs.json"
