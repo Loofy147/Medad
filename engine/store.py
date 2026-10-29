@@ -117,6 +117,80 @@ class TransactionalStore(Protocol):
 
     def get_record(self, actor: Actor, collection: str, record_id: str) -> dict[str, Any] | None: ...
 
+    def verify_retained_artifact(
+        self, actor: Actor, artifact_id: str, byte_store: Any, *, reason: str,
+    ) -> dict[str, Any]:
+        """Re-read retained bytes, recompute their digest, and append an audit outcome.
+
+        The byte store must implement get_bytes(digest). The digest stored in the
+        artifact record is the expected identity; metadata-only references cannot
+        be marked verified. Verification and its audit event are local to this DB
+        transaction, not an atomic transaction with the filesystem blob store.
+        """
+        artifact_id = self._validate_record_id(artifact_id, "artifact_id")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("reason must be a non-empty string for the audit record")
+        if not callable(getattr(byte_store, "get_bytes", None)):
+            raise TypeError("byte_store must provide get_bytes(sha256_digest)")
+        self._require_permission(
+            actor, "audit:verify", "artifacts", artifact_id, reason=reason
+        )
+
+        with self._transaction() as connection:
+            row = connection.execute(
+                "SELECT * FROM records WHERE collection = 'artifacts' AND record_id = ?",
+                (artifact_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError(f"artifact record {artifact_id!r} does not exist")
+            payload = json.loads(row["payload_json"])
+            expected = payload.get("sha256", payload.get("artifact_sha256"))
+            if not isinstance(expected, str) or len(expected) != 64:
+                outcome = "UNVERIFIABLE"
+                details = {
+                    "artifact_id": artifact_id,
+                    "expected_sha256": expected,
+                    "verified": False,
+                    "failure": "ARTIFACT_RECORD_HAS_NO_VALID_SHA256",
+                }
+                self._append_audit(
+                    connection, actor, "audit:verify_artifact", "artifacts", artifact_id,
+                    outcome, reason, details,
+                )
+                return details
+
+            expected = expected.lower()
+            try:
+                content = byte_store.get_bytes(expected)
+                if not isinstance(content, bytes):
+                    raise TypeError("byte store returned a non-bytes artifact")
+                actual = sha256(content).hexdigest()
+                verified = actual == expected
+                outcome = "VERIFIED" if verified else "MISMATCH"
+                details = {
+                    "artifact_id": artifact_id,
+                    "expected_sha256": expected,
+                    "actual_sha256": actual,
+                    "byte_length": len(content),
+                    "verified": verified,
+                    "verification": "RETAINED_BYTES_REHASHED",
+                }
+            except (OSError, ValueError, RuntimeError, TypeError) as exc:
+                outcome = "FAILED"
+                details = {
+                    "artifact_id": artifact_id,
+                    "expected_sha256": expected,
+                    "verified": False,
+                    "failure": "RETAINED_BYTES_UNAVAILABLE_OR_CORRUPT",
+                    "error": str(exc),
+                }
+
+            self._append_audit(
+                connection, actor, "audit:verify_artifact", "artifacts", artifact_id,
+                outcome, reason, details,
+            )
+            return details
+
     def list_records(
         self, actor: Actor, collection: str, *, after_id: str | None = None, limit: int = 100,
     ) -> list[dict[str, Any]]: ...
@@ -130,6 +204,10 @@ class TransactionalStore(Protocol):
     ) -> list[dict[str, Any]]: ...
 
     def verify_audit_chain(self, actor: Actor) -> dict[str, Any]: ...
+
+    def verify_retained_artifact(
+        self, actor: Actor, artifact_id: str, byte_store: Any, *, reason: str,
+    ) -> dict[str, Any]: ...
 
     def close(self) -> None: ...
 
