@@ -14,6 +14,7 @@ from instant import JsonlEventJournal, generate_instant_events
 from decision_kernel import assess_claim, assess_gates, validate_continuation_contract
 from opportunity import load_snapshot
 from workflow import build_decision_run
+from run_journal import DecisionRunJournal
 
 
 def read_json(path: str | Path) -> dict[str, Any]:
@@ -56,6 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--input", help="JSON input file for the selected command")
     parser.add_argument("--snapshot", help="Research snapshot JSON for opportunity-audit")
     parser.add_argument("--journal", default=".medad/instant-events.jsonl", help="Local JSONL event journal for instant")
+    parser.add_argument("--run-journal", help="Optional append-only JSONL decision-run journal; only used by workflow")
     args = parser.parse_args(argv)
 
     try:
@@ -78,6 +80,14 @@ def main(argv: list[str] | None = None) -> int:
             payload = read_json(args.input)
             if args.command == "workflow":
                 output = build_decision_run(payload)
+                if args.run_journal:
+                    stored = DecisionRunJournal(args.run_journal).append(output)
+                    output = dict(output)
+                    output["journal_result"] = {
+                        "inserted": stored["inserted"],
+                        "reason": stored["reason"],
+                        "journal_path": str(Path(args.run_journal)),
+                    }
             elif args.command == "economics":
                 output = evaluate(parse_inputs(payload))
             elif args.command == "sensitivity":
