@@ -160,8 +160,8 @@ def validate_task_payload(record_id: str, payload: Any) -> list[str]:
                 errors.append(transition_error)
             elif transition_time and transition_time > datetime.now(timezone.utc):
                 errors.append("transition.occurred_at cannot be in the future")
-            if transition_time and parsed_times.get("updated_at") and transition_time != parsed_times["updated_at"]:
-                errors.append("transition.occurred_at must equal updated_at")
+            if transition_time and parsed_times.get("updated_at") and transition_time > parsed_times["updated_at"]:
+                errors.append("transition.occurred_at must not follow updated_at")
     return errors
 
 
@@ -204,4 +204,6 @@ def validate_task_transition(previous: dict[str, Any], current: dict[str, Any]) 
         errors.append(transition_error)
     elif transition_time and old_updated and transition_time <= old_updated:
         errors.append("transition.occurred_at must be after the previous task update")
+    if transition_time and new_updated and transition_time != new_updated:
+        errors.append("transition.occurred_at must equal updated_at for a status transition")
     return errors
