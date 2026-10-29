@@ -3,6 +3,7 @@
 from __future__ import annotations
 from html.parser import HTMLParser
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import sys
@@ -71,7 +72,7 @@ def main() -> int:
     missing_labels = sorted(set(parser.labels) - id_set)
     if missing_labels:
         raise SystemExit(f"labels point to missing IDs: {missing_labels}")
-    required_ids = {"v-overview", "v-products", "v-calculator", "v-proposals", "v-instant", "sourceurl", "sourcedate", "breakspend"}
+    required_ids = {"v-overview", "v-products", "v-calculator", "v-proposals", "v-instant", "sourceurl", "sourcedate", "breakspend", "scanInstant", "exportInstant", "instantGenerated"}
     missing = sorted(required_ids - id_set)
     if missing:
         raise SystemExit(f"required UI sections/controls missing: {missing}")
@@ -86,6 +87,10 @@ def main() -> int:
         raise SystemExit("supplier-discovery references are missing from product lab")
     if "data-copy-supplier" not in html or "لم يتم إرسالها" not in script or "devis grossiste séparé" not in script:
         raise SystemExit("bilingual supplier quote draft must be present and must not claim it was sent")
+    if "data-instant-state" not in script or "LOCAL_SESSION_NOT_LIVE" not in script or "local_only:true" not in script:
+        raise SystemExit("Instant must record local-only event states and export boundary")
+    if re.search(r"\\bfetch\\s*\\(", script) or "XMLHttpRequest" in script or "new WebSocket" in script:
+        raise SystemExit("browser prototype must not imply or add unreviewed live network integration")
     if not script.strip():
         raise SystemExit("inline JavaScript not found")
     with tempfile.NamedTemporaryFile("w", suffix=".js", encoding="utf-8", delete=False) as f:
