@@ -1,0 +1,44 @@
+{
+  "schema_version": "medad.decision-run.v1",
+  "run_id": "REPLACE_WITH_UNIQUE_RUN_ID",
+  "case_id": "generic-case-template-only",
+  "observed_at": "2026-10-29T00:00:00+00:00",
+  "code_revision": "REPLACE_WITH_GIT_COMMIT_SHA",
+  "notice": "SYNTHETIC TEMPLATE ONLY. Every number below is illustrative; it is not market evidence, a supplier quote, or a forecast.",
+  "inputs": {
+    "product_name": "generic-template-case",
+    "selling_price": 2900,
+    "purchase_cost": 1200,
+    "packaging_cost": 80,
+    "outbound_delivery_cost": 450,
+    "delivery_fee_collected": 300,
+    "failed_delivery_return_cost": 250,
+    "return_shipping_cost": 200,
+    "return_handling_cost": 150,
+    "ad_spend": 35000,
+    "placed_orders": 100,
+    "delivery_rate": 0.7,
+    "customer_return_rate": 0.05,
+    "inventory_recovery_rate": 0.9,
+    "other_variable_cost_per_retained_order": 0,
+    "other_fixed_costs": 3000,
+    "confidence": {},
+    "evidence": {
+      "unit_cost": "assumed",
+      "selling_price": "assumed",
+      "delivery_rate": "assumed",
+      "return_rate": "assumed",
+      "ad_cost": "assumed"
+    },
+    "evidence_sources": {},
+    "sample_size": null,
+    "data_age_days": null
+  },
+  "evidence_records": [],
+  "claims": [],
+  "gates": [],
+  "options": {
+    "sensitivity": false
+  },
+  "subject_id": "generic-template-case"
+}
