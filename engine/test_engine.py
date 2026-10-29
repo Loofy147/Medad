@@ -99,6 +99,60 @@ class UnitEconomicsTests(unittest.TestCase):
 
 
 class OpportunityGateTests(unittest.TestCase):
+    @staticmethod
+    def research_ready_candidate():
+        from datetime import date, timedelta
+        today = date.today()
+        later = (today + timedelta(days=30)).isoformat()
+        recent = today.isoformat()
+        quotes = [
+            {"quote_id": "quote-1", "artifact_ref": "private://evidence/quote-1", "quoted_on": recent,
+             "valid_until": later, "supplier_id": "supplier-a", "seller_verified": True, "sku": "SKU-1",
+             "minimum_quantity": 10, "unit_price_dzd": 500, "currency": "DZD"},
+            {"quote_id": "quote-2", "artifact_ref": "private://evidence/quote-2", "quoted_on": recent,
+             "valid_until": later, "supplier_id": "supplier-b", "seller_verified": True, "sku": "SKU-1",
+             "minimum_quantity": 20, "unit_price_dzd": 470, "currency": "DZD"},
+        ]
+        return {
+            "id": "test-candidate", "sku": "SKU-1", "product_spec_verified": True,
+            "sample_inspection": {"artifact_ref": "private://evidence/sample", "inspected_on": recent,
+                                  "inspector_id": "reviewer-a", "outcome": "PASS", "sku": "SKU-1"},
+            "supplier_quotes": quotes,
+            "landed_cost": {"artifact_ref": "private://evidence/landed-cost", "calculated_on": recent,
+                            "verified": True, "reviewed_by": "reviewer-a",
+                            "component_costs_dzd": {"purchase": 470, "packaging": 30, "inbound_transport": 20},
+                            "unit_cost_dzd": 520, "source_quote_ids": ["quote-2"]},
+            "courier_quote": {"artifact_ref": "private://evidence/courier", "quoted_on": recent,
+                              "seller_account_verified": True, "origin_wilaya": "Blida",
+                              "coverage_wilayas": ["Blida", "Alger"], "outbound_dzd": 450,
+                              "failed_delivery_dzd": 250, "return_dzd": 200, "cod_remittance_days": 5,
+                              "contract_or_quote_id": "carrier-quote-1"},
+        }
+
+    @staticmethod
+    def add_test_evidence(candidate, cohort_count=1):
+        from datetime import date, timedelta
+        today = date.today()
+        recent = today.isoformat()
+        candidate["pilot_campaign"] = {
+            "artifact_ref": "private://evidence/campaign-1",
+            "started_on": (today - timedelta(days=7)).isoformat(), "ended_on": recent,
+            "platform": "Meta Ads", "creative_id": "creative-001", "attribution_method": "tracked form + CRM",
+            "spend_dzd": 15000, "placed_orders": 50, "attributed_orders": 40,
+        }
+        candidate["order_cohorts"] = []
+        for i in range(cohort_count):
+            end = today - timedelta(days=(cohort_count - i - 1) * 7)
+            start = end - timedelta(days=6)
+            candidate["order_cohorts"].append({
+                "artifact_ref": f"private://evidence/cohort-{i+1}",
+                "started_on": start.isoformat(), "ended_on": end.isoformat(),
+                "cohort_id": f"cohort-{i+1}", "sku": candidate["sku"], "reconciled": True,
+                "reconciled_by": "operations-reviewer", "placed_orders": 50, "delivered_orders": 35,
+                "failed_orders": 15, "returned_orders": 2, "retained_orders": 33,
+            })
+        return candidate
+
     def test_listing_without_supplier_quote_stays_research_only(self):
         from opportunity import assess_candidate
         result = assess_candidate({"id": "listing-only", "market_price_observed_dzd": {"low": 100, "high": 200}})
@@ -106,25 +160,55 @@ class OpportunityGateTests(unittest.TestCase):
         self.assertFalse(result["is_profitability_score"])
         self.assertFalse(result["is_investment_approval"])
 
-    def test_supplier_and_courier_quotes_do_not_skip_pilot_gate(self):
+    def test_research_evidence_must_not_skip_the_pilot_gate(self):
         from opportunity import assess_candidate
-        candidate = {"id": "quoted", "product_spec_verified": True, "supplier_quotes_count": 2,
-                     "landed_cost_verified": True, "courier_quote_verified": True}
-        self.assertEqual(assess_candidate(candidate)["stage"], "PRETEST_READY")
+        candidate = self.research_ready_candidate()
+        result = assess_candidate(candidate)
+        self.assertEqual(result["stage"], "PRETEST_READY")
+        self.assertEqual(result["valid_supplier_quote_count"], 2)
+        self.assertTrue(result["missing_test_gates"])
 
-    def test_fractional_supplier_quote_count_does_not_pass_gate(self):
+    def test_supplier_quotes_must_be_current_and_for_two_verified_sellers(self):
+        from datetime import date, timedelta
         from opportunity import assess_candidate
-        candidate = {"id": "fractional", "product_spec_verified": True, "supplier_quotes_count": 2.5,
-                     "landed_cost_verified": True, "courier_quote_verified": True}
+        candidate = self.research_ready_candidate()
+        candidate["supplier_quotes"][1]["supplier_id"] = "supplier-a"
+        result = assess_candidate(candidate)
+        self.assertEqual(result["stage"], "RESEARCH_ONLY")
+        self.assertEqual(result["valid_supplier_quote_count"], 1)
+
+        candidate = self.research_ready_candidate()
+        candidate["supplier_quotes"][1]["valid_until"] = (date.today() - timedelta(days=1)).isoformat()
+        result = assess_candidate(candidate)
+        self.assertEqual(result["stage"], "RESEARCH_ONLY")
+
+    def test_landed_cost_must_reconcile_with_its_components(self):
+        from opportunity import assess_candidate
+        candidate = self.research_ready_candidate()
+        candidate["landed_cost"]["unit_cost_dzd"] = 900
         self.assertEqual(assess_candidate(candidate)["stage"], "RESEARCH_ONLY")
 
     def test_single_cohort_needs_repeatability_before_scale_review(self):
         from opportunity import assess_candidate
-        candidate = {"id": "tested", "product_spec_verified": True, "supplier_quotes_count": 2,
-                     "landed_cost_verified": True, "courier_quote_verified": True,
-                     "pilot_campaign_evidence": True, "delivered_order_cohort_evidence": True,
-                     "repeatable_cohorts": 1}
-        self.assertEqual(assess_candidate(candidate)["stage"], "TESTED_SINGLE_COHORT")
+        candidate = self.add_test_evidence(self.research_ready_candidate(), cohort_count=1)
+        result = assess_candidate(candidate)
+        self.assertEqual(result["stage"], "TESTED_SINGLE_COHORT")
+        self.assertEqual(result["valid_reconciled_cohort_count"], 1)
+
+    def test_scale_review_requires_two_distinct_reconciled_cohorts(self):
+        from opportunity import assess_candidate
+        candidate = self.add_test_evidence(self.research_ready_candidate(), cohort_count=2)
+        result = assess_candidate(candidate)
+        self.assertEqual(result["stage"], "SCALE_REVIEW_CANDIDATE")
+        self.assertFalse(result["is_investment_approval"])
+
+    def test_inconsistent_order_cohort_counts_do_not_pass_test_gate(self):
+        from opportunity import assess_candidate
+        candidate = self.add_test_evidence(self.research_ready_candidate(), cohort_count=1)
+        candidate["order_cohorts"][0]["retained_orders"] = 50
+        result = assess_candidate(candidate)
+        self.assertEqual(result["stage"], "PRETEST_READY")
+        self.assertEqual(result["valid_reconciled_cohort_count"], 0)
 
     def test_wholesale_discovery_platforms_are_not_supplier_quotes(self):
         from pathlib import Path
@@ -133,16 +217,16 @@ class OpportunityGateTests(unittest.TestCase):
         self.assertEqual(len(snapshot["sourcing_leads"]), 5)
         self.assertTrue(all(lead["status"] in {"DISCOVERY_LEAD_ONLY", "CONTACT_REQUIRED_NOT_VERIFIED"} for lead in snapshot["sourcing_leads"]))
         self.assertTrue(all(lead["quote_verified"] is False for lead in snapshot["sourcing_leads"]))
+        self.assertEqual(snapshot["verified_supplier_quote_count"], 0)
 
     def test_registry_rejects_sourcing_lead_with_unknown_source(self):
         from pathlib import Path
         import json
+        import tempfile
         from opportunity import load_snapshot
         path = Path(__file__).resolve().parent.parent / "data" / "research_snapshot_2026-10-29.json"
         source = json.loads(path.read_text(encoding="utf-8"))
         source["sourcing_leads"][0]["platform_source_id"] = "missing-source"
-        # Keep the corrupt snapshot isolated in a temporary file.
-        import tempfile
         with tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False) as file:
             json.dump(source, file)
             temp_path = Path(file.name)
