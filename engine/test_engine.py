@@ -72,6 +72,20 @@ class UnitEconomicsTests(unittest.TestCase):
         self.assertEqual(result["data_quality"]["grade"], "HIGH")
         self.assertEqual(result["decision"]["status"], "TEST_CANDIDATE")
 
+    def test_exact_break_even_before_ads_has_zero_budget(self):
+        result = evaluate(Inputs(
+            selling_price=1000, purchase_cost=500, packaging_cost=0,
+            outbound_delivery_cost=0, delivery_fee_collected=0,
+            failed_delivery_return_cost=0, return_shipping_cost=0,
+            return_handling_cost=0, ad_spend=0, placed_orders=1,
+            delivery_rate=1, customer_return_rate=0,
+            inventory_recovery_rate=1, other_fixed_costs=500,
+        ))
+        economics = result["economics_dzd"]
+        self.assertEqual(economics["contribution_before_ads"], 500)
+        self.assertEqual(economics["break_even_ad_spend"], 0)
+        self.assertTrue(economics["break_even_possible_before_ads"])
+
     def test_no_break_even_when_product_loses_money_before_ad_spend(self):
         result = evaluate(Inputs(selling_price=100, purchase_cost=1000, ad_spend=0))
         econ = result["economics_dzd"]
