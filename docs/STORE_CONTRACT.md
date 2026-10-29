@@ -16,7 +16,7 @@ The engine/store.py module defines TransactionalStore and implements it as SQLit
 | artifacts | Artifact references, content digests and metadata | Analyst |
 | decisions | Immutable evidence reviews, stage decisions and risk-acceptance records | Reviewer or approver, according to decision type |
 
-The store validates evidence records through the existing decision-kernel contract, checks decision-run identity/hashes and analysis-only status, and requires artifact records to carry a reference or a valid SHA-256 digest. A reference or digest is not proof that external bytes are authentic; provenance verification and retained artifact bytes still need a trusted adapter.
+The store validates evidence records through the existing decision-kernel contract, checks decision-run identity/hashes and analysis-only status, and requires artifact records to carry a reference or a valid SHA-256 digest. `engine/artifact_store.py` adds local content-addressed byte retention: writes are read back and re-hashed, and every retrieval re-computes SHA-256. `SQLiteStore.verify_retained_artifact` re-reads a retained blob by its registered digest and records VERIFIED/FAILED/UNVERIFIABLE outcomes in the audit chain. This proves only that the retained bytes match the registered digest; it does not prove who created the artifact or whether the external source was truthful. Filesystem and SQLite writes are not one atomic transaction.
 
 ## Transaction and revision contract
 
@@ -58,7 +58,7 @@ This is tamper-evident, not tamper-proof. A database owner can disable triggers,
 ## Migration and recovery gates before external integration
 
 1. Connect a real authentication adapter and test role claims/tenant boundaries; never accept client-supplied roles as proof.
-2. Keep extending persistence validation for task-state transitions, tenant-scoped references and verification of retained artifact bytes; evidence, decision-run envelope and basic artifact identity validation are already enforced.
+2. Keep extending persistence validation for tenant-scoped references, task dependency updates and artifact retention/recovery; task-state transition validation and retained-byte digest checks are now implemented locally.
 3. Test migrations from every supported schema version and concurrent writer behavior on the target database.
 4. Add external audit checkpoints, backups, restore drills and retention policies.
 5. Build API/connector adapters against TransactionalStore; do not let the UI write directly to the database.
