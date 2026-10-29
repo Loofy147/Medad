@@ -174,6 +174,7 @@ def evaluate(x: Inputs) -> dict[str, Any]:
     break_even_cac_per_placed = break_even_ad_spend / placed if placed and break_even_ad_spend is not None else None
     break_even_cac_per_retained = break_even_ad_spend / retained if retained and break_even_ad_spend is not None else None
     margin = profit / (revenue + customer_delivery_revenue) if (revenue + customer_delivery_revenue) else None
+    data_quality = assess_data_quality(x)
     return {
         "product_name": x.product_name,
         "funnel": {
@@ -201,7 +202,7 @@ def evaluate(x: Inputs) -> dict[str, Any]:
             "break_even_ad_cost_per_placed_order": round(break_even_cac_per_placed, 2) if break_even_cac_per_placed is not None else None,
             "break_even_ad_cost_per_retained_order": round(break_even_cac_per_retained, 2) if break_even_cac_per_retained is not None else None,
         },
-        "decision": classify(profit, placed, x), "data_quality": assess_data_quality(x),
+        "decision": classify(profit, placed, x, data_quality), "data_quality": data_quality,
         "assumptions": [
             "Expected counts may be fractional and should be rounded only for operational forecasts.",
             "All placed orders incur packaging and outbound-shipping costs; adjust if pre-shipment cancellations are material.",
@@ -212,13 +213,13 @@ def evaluate(x: Inputs) -> dict[str, Any]:
     }
 
 
-def classify(profit: float, placed: int, x: Inputs) -> dict[str, str]:
+def classify(profit: float, placed: int, x: Inputs, quality: dict[str, Any] | None = None) -> dict[str, str]:
     if placed <= 0:
         return {"status": "NO_VOLUME", "meaning": "No order volume supplied; cannot assess viability."}
     if profit < 0:
         return {"status": "LOSS_UNDER_CURRENT_INPUTS", "meaning": "Negative modeled profit under current inputs; validate costs and operational assumptions before concluding."}
 
-    quality = assess_data_quality(x)
+    quality = quality if quality is not None else assess_data_quality(x)
     if quality["grade"] in {"UNKNOWN", "LOW"}:
         return {
             "status": "UNVERIFIED_ECONOMICS",
