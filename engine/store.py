@@ -18,6 +18,11 @@ import json
 import sqlite3
 import uuid
 
+try:
+    from decision_kernel import validate_evidence_record
+except ModuleNotFoundError:  # support both engine-directory CLI and package imports
+    from .decision_kernel import validate_evidence_record
+
 
 STORE_SCHEMA_VERSION = 1
 RECORD_COLLECTIONS = frozenset({"evidence", "runs", "tasks", "artifacts"})
@@ -139,6 +144,52 @@ def _parse_aware_time(value: Any, field_name: str) -> datetime:
     if parsed.tzinfo is None:
         raise ValueError(f"{field_name} must include a timezone")
     return parsed.astimezone(timezone.utc)
+
+
+def _validate_collection_payload(collection: str, record_id: str, payload: dict[str, Any]) -> None:
+    """Validate established domain contracts before accepting durable records."""
+    if collection == "evidence":
+        if payload.get("evidence_id") != record_id:
+            raise ValueError("evidence_id must match the storage record_id")
+        errors = validate_evidence_record(payload)
+        if errors:
+            raise ValueError(f"evidence contract violations: {errors}")
+        return
+
+    if collection == "runs":
+        if payload.get("schema_version") != "medad.decision-run.v1":
+            raise ValueError("run record schema_version must be medad.decision-run.v1")
+        manifest = payload.get("run_manifest")
+        decision = payload.get("decision")
+        if not isinstance(manifest, dict) or not isinstance(decision, dict):
+            raise ValueError("run record requires run_manifest and decision objects")
+        if manifest.get("run_id") != record_id:
+            raise ValueError("run_manifest.run_id must match the storage record_id")
+        for field_name in ("case_id", "code_revision", "input_hash", "report_hash"):
+            value = manifest.get(field_name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"run_manifest.{field_name} is required")
+        for field_name in ("input_hash", "report_hash"):
+            digest = manifest[field_name]
+            if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest.lower()):
+                raise ValueError(f"run_manifest.{field_name} must be a 64-character hexadecimal digest")
+        if manifest.get("mode") != "ANALYSIS_ONLY_NO_EXTERNAL_SIDE_EFFECTS":
+            raise ValueError("run record mode must be analysis-only")
+        if decision.get("authorization_granted") is not False:
+            raise ValueError("run decision.authorization_granted must be false")
+        return
+
+    if collection == "artifacts":
+        artifact_ref = payload.get("artifact_ref")
+        digest = payload.get("sha256", payload.get("artifact_sha256"))
+        has_ref = isinstance(artifact_ref, str) and bool(artifact_ref.strip())
+        if not has_ref and digest is None:
+            raise ValueError("artifact_ref or sha256 is required to identify an artifact")
+        if digest is not None and (
+            not isinstance(digest, str) or len(digest) != 64
+            or any(char not in "0123456789abcdef" for char in digest.lower())
+        ):
+            raise ValueError("artifact SHA-256 digest must be a 64-character hexadecimal string")
 
 
 def _audit_body(row: sqlite3.Row | dict[str, Any]) -> dict[str, Any]:
@@ -324,6 +375,7 @@ class SQLiteStore:
         except (TypeError, ValueError) as exc:
             raise ValueError("payload must be JSON-serializable without NaN/Infinity") from exc
         payload_hash = sha256(payload_json.encode("utf-8")).hexdigest()
+        _validate_collection_payload(collection, record_id, payload)
         self._require_permission(actor, f"write:{collection}", collection, record_id, reason=reason)
 
         with self._transaction() as connection:
