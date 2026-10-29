@@ -49,6 +49,29 @@ class UnitEconomicsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             evaluate(Inputs(evidence={"unit_cost": "guaranteed"}))
 
+    def test_positive_model_without_traceable_evidence_is_not_a_test_candidate(self):
+        result = evaluate(Inputs())
+        self.assertGreater(result["economics_dzd"]["estimated_profit"], 0)
+        self.assertEqual(result["data_quality"]["grade"], "UNKNOWN")
+        self.assertEqual(result["decision"]["status"], "UNVERIFIED_ECONOMICS")
+
+    def test_test_candidate_status_requires_complete_recent_traceable_evidence(self):
+        from datetime import date
+        groups = ["unit_cost", "selling_price", "delivery_rate", "return_rate", "ad_cost"]
+        evidence_sources = {
+            key: {"url": f"https://evidence.example/{key}", "observed_on": date.today().isoformat(), "label": "observed"}
+            for key in groups
+        }
+        result = evaluate(Inputs(
+            confidence={key: .95 for key in groups},
+            evidence={key: "observed" for key in groups},
+            evidence_sources=evidence_sources,
+            sample_size=100,
+            data_age_days=0,
+        ))
+        self.assertEqual(result["data_quality"]["grade"], "HIGH")
+        self.assertEqual(result["decision"]["status"], "TEST_CANDIDATE")
+
     def test_no_break_even_when_product_loses_money_before_ad_spend(self):
         result = evaluate(Inputs(selling_price=100, purchase_cost=1000, ad_spend=0))
         econ = result["economics_dzd"]
