@@ -54,7 +54,7 @@ The separate sensitivity engine performs one-factor-at-a-time shocks and bracket
 
 ## Decision gate contract
 
-Every gate is one of PASS, FAIL, UNKNOWN, NOT_APPLICABLE and carries evidence references. Only explicit PASS satisfies a required gate. A PASS without an evidence reference is treated as UNKNOWN. Unknown and failed gates block the stage transition.
+Every gate is one of PASS, FAIL, UNKNOWN, NOT_APPLICABLE and carries evidence references. Only explicit PASS satisfies a required gate, and only when each referenced record exists in the supplied evidence registry and passes its evidence contract. PASS also requires reviewed_by, a valid reviewed_at date, and a reason. NOT_APPLICABLE requires a reviewer, date and rationale; FAIL requires a reason. A PASS without evidence, review metadata, or valid evidence references is treated as UNKNOWN. Unknown and failed gates block the stage transition.
 
 A generic eligibility result is not an authorization. The person or role empowered to decide must record the decision, owner, reason, review date, accepted risks, and rollback/stop condition.
 
@@ -119,6 +119,20 @@ For engine changes, include:
 - replay/idempotency;
 - mutation test that removes the guard expected to block a bad decision;
 - exact regression test for each previously found failure.
+
+## Local CLI examples
+
+Input files are local JSON and must be reviewed before sharing. From the engine directory:
+
+- `python cli.py economics --input inputs.json` — calculate unit economics and evidence-aware decision status.
+- `python cli.py sensitivity --input inputs.json` — compare explicit shocks; no probability estimates are generated.
+- `python cli.py instant --input inputs.json --journal .medad/instant-events.jsonl` — append deduplicated local alerts; no external notifications are sent.
+- `python cli.py claim --input claim-and-evidence.json` — validate a claim against linked records.
+- `python cli.py gates --input gates-and-evidence.json` — require a supplied evidence registry plus reviewer, date and reason for PASS.
+- `python cli.py continuation --input continuation.json` — check a handoff contract.
+- `python cli.py opportunity-audit --snapshot ../data/research_snapshot_2026-10-29.json` — inspect the dated sourcing registry.
+
+The event journal directory `.medad/` is ignored by version control. It is a local development store, not a secure shared database.
 
 ## Current implementation boundary
 
