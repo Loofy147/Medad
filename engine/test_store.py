@@ -324,8 +324,10 @@ class SQLiteStoreTests(unittest.TestCase):
         self.assertIsNotNone(self.store.get_record(self.analyst, "runs", "atomic-run"))
 
         event_count = len(self.store.audit_events(self.auditor))
+        replay_report = json.loads(json.dumps(report))
+        replay_report["run_manifest"]["created_at"] = "2026-10-29T12:59:59+00:00"
         replay = self.store.commit_run_packet(
-            self.analyst, report, [evidence], reason="Replaying the same run packet"
+            self.analyst, replay_report, [evidence], reason="Replaying the same run packet"
         )
         self.assertFalse(replay["inserted"])
         self.assertEqual(len(self.store.audit_events(self.auditor)), event_count)
