@@ -13,3 +13,5 @@ jobs:
       - name: Run deterministic engine tests
         working-directory: engine
         run: python -m unittest -v
+      - name: Verify UI syntax and evidence snapshot
+        run: python scripts/verify_frontend.py
