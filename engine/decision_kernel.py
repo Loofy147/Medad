@@ -86,11 +86,17 @@ def validate_claim(claim: dict[str, Any], evidence_records: list[dict[str, Any]]
     if not isinstance(refs, list):
         errors.append("evidence_refs must be an array")
         refs = []
-    if len(refs) != len(set(refs)):
-        errors.append("evidence_refs must not contain duplicates")
-    ids = {item.get("evidence_id") for item in evidence_records if isinstance(item, dict)}
+    elif any(not _text(ref) for ref in refs):
+        errors.append("every evidence reference must be a non-empty string")
+    else:
+        if len(refs) != len(set(refs)):
+            errors.append("evidence_refs must not contain duplicates")
+    ids_list = [item.get("evidence_id") for item in evidence_records if isinstance(item, dict)]
+    if len(ids_list) != len(set(item for item in ids_list if _text(item))):
+        errors.append("evidence_records contains duplicate evidence_id values")
+    ids = {item for item in ids_list if _text(item)}
     for ref in refs:
-        if ref not in ids:
+        if isinstance(ref, str) and ref not in ids:
             errors.append(f"unknown evidence reference: {ref!r}")
     return errors
 
@@ -206,9 +212,12 @@ def assess_gates(gates: list[dict[str, Any]]) -> dict[str, Any]:
             continue
         gate_id = gate.get("gate_id")
         state = gate.get("state", "UNKNOWN")
-        if not _text(gate_id) or gate_id in seen:
+        if not _text(gate_id):
+            errors.append(f"Gate ID is missing or invalid: {gate_id!r}")
+        elif gate_id in seen:
             errors.append(f"Gate ID is missing or duplicated: {gate_id!r}")
-        seen.add(gate_id)
+        else:
+            seen.add(gate_id)
         if state not in GATE_STATES:
             errors.append(f"Invalid gate state for {gate_id!r}: {state!r}")
             state = "UNKNOWN"
