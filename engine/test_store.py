@@ -311,6 +311,17 @@ class SQLiteStoreTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unknown decision fields"):
             self.store.record_decision(self.approver, "stage-auth-flag", payload)
 
+    def test_run_with_unpersisted_evidence_cannot_bypass_atomic_packet_method(self):
+        evidence = evidence_payload("unpersisted-evidence")
+        report = valid_run_payload("non-atomic-run", [evidence])
+        with self.assertRaisesRegex(ValueError, "use commit_run_packet"):
+            self.store.put_record(
+                self.analyst, "runs", "non-atomic-run", report,
+                reason="Reject non-atomic run and evidence persistence",
+            )
+        self.assertIsNone(self.store.get_record(self.analyst, "runs", "non-atomic-run"))
+        self.assertIsNone(self.store.get_record(self.analyst, "evidence", "unpersisted-evidence"))
+
     def test_run_packet_commits_evidence_and_report_atomically_and_replays_idempotently(self):
         evidence = evidence_payload("atomic-evidence")
         report = valid_run_payload("atomic-run", [evidence])
