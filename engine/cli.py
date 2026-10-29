@@ -90,7 +90,10 @@ def main(argv: list[str] | None = None) -> int:
             elif args.command == "gates":
                 if not isinstance(payload.get("gates"), list):
                     raise ValueError("gates input requires an array 'gates'")
-                output = assess_gates(payload["gates"])
+                records = payload.get("evidence_records", [])
+                if not isinstance(records, list):
+                    raise ValueError("evidence_records must be an array")
+                output = assess_gates(payload["gates"], evidence_records=records)
             elif args.command == "continuation":
                 output = {"contract_errors": validate_continuation_contract(payload)}
                 output["valid"] = not output["contract_errors"]
