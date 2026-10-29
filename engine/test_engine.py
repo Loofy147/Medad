@@ -102,6 +102,32 @@ class OpportunityGateTests(unittest.TestCase):
                      "repeatable_cohorts": 1}
         self.assertEqual(assess_candidate(candidate)["stage"], "TESTED_SINGLE_COHORT")
 
+    def test_wholesale_discovery_platforms_are_not_supplier_quotes(self):
+        from pathlib import Path
+        from opportunity import load_snapshot
+        snapshot = load_snapshot(Path(__file__).resolve().parent.parent / "data" / "research_snapshot_2026-10-29.json")
+        self.assertEqual(len(snapshot["sourcing_leads"]), 3)
+        self.assertTrue(all(lead["status"] == "DISCOVERY_LEAD_ONLY" for lead in snapshot["sourcing_leads"]))
+        self.assertTrue(all(lead["quote_verified"] is False for lead in snapshot["sourcing_leads"]))
+
+    def test_registry_rejects_sourcing_lead_with_unknown_source(self):
+        from pathlib import Path
+        import json
+        from opportunity import load_snapshot
+        path = Path(__file__).resolve().parent.parent / "data" / "research_snapshot_2026-10-29.json"
+        source = json.loads(path.read_text(encoding="utf-8"))
+        source["sourcing_leads"][0]["platform_source_id"] = "missing-source"
+        # Keep the corrupt snapshot isolated in a temporary file.
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False) as file:
+            json.dump(source, file)
+            temp_path = Path(file.name)
+        try:
+            with self.assertRaises(ValueError):
+                load_snapshot(temp_path)
+        finally:
+            temp_path.unlink(missing_ok=True)
+
     def test_registry_has_no_investment_ready_candidate(self):
         from pathlib import Path
         from opportunity import load_snapshot
