@@ -16,7 +16,7 @@
 
 > Medad est un outil B2B de décision pour les partenariats e-commerce en Algérie. Il relie des preuves datées sur les produits, fournisseurs et livraisons à une simulation du coût réel par commande — livrée, refusée, retournée et conservée — puis bloque les décisions risquées tant que les preuves et seuils requis ne sont pas réunis.
 
-**Longueur :** 343 caractères (espaces compris), à recontrôler dans le formulaire avant dépôt.
+**Longueur :** 332 caractères (espaces compris), à recontrôler dans le formulaire avant dépôt.
 
 ### Résumé exécutif
 
